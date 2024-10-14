@@ -13,7 +13,7 @@ from src.utils import chrome_browser_options
 from src.llm.llm_manager import GPTAnswerer
 from src.aihawk_authenticator import AIHawkAuthenticator
 from src.aihawk_bot_facade import AIHawkBotFacade
-from src.aihawk_job_manager import AIHawkJobManager
+from src.job_manager import JobManager
 from src.job_application_profile import JobApplicationProfile
 from loguru import logger
 
@@ -52,67 +52,116 @@ class ConfigValidator:
             raise ConfigError(f"File not found: {yaml_path}")
     
     
-    def validate_config(config_yaml_path: Path) -> dict:
-        parameters = ConfigValidator.validate_yaml_file(config_yaml_path)
+    def validate_config(self, config_yaml_path: Path) -> dict:
+        parameters = self.validate_yaml_file(config_yaml_path)
         required_keys = {
-            'remote': bool,
-            'experienceLevel': dict,
-            'jobTypes': dict,
-            'date': dict,
-            'positions': list,
-            'locations': list,
-            'distance': int,
-            'companyBlacklist': list,
-            'titleBlacklist': list,
+            'keywords' : list,
+            'search_only': dict,
+            'words_to_exclude' : list,
+            'specialization': str,
+            'industry': str,
+            'regions' : list,
+            'districts' : list,
+            'subway' : list,
+            'income': int,
+            'education': dict,
+            'experience': dict,
+            'job_type': dict,
+            'work_schedule': dict,
+            'side_job': dict,
+            'other_params': dict,
             'llm_model_type': str,
             'llm_model': str
         }
-
+        
+        # Проверить что все ключи находятся в файле настроек, а их поля имеют ожидаемый тип
         for key, expected_type in required_keys.items():
             if key not in parameters:
-                if key in ['companyBlacklist', 'titleBlacklist']:
-                    parameters[key] = []
-                else:
-                    raise ConfigError(f"Missing or invalid key '{key}' in config file {config_yaml_path}")
+                    raise ConfigError(f"Отсутствует или неверный тип ключа '{key}' в конфигурационном файле {config_yaml_path}")
             elif not isinstance(parameters[key], expected_type):
-                if key in ['companyBlacklist', 'titleBlacklist'] and parameters[key] is None:
-                    parameters[key] = []
-                else:
-                    raise ConfigError(f"Invalid type for key '{key}' in config file {config_yaml_path}. Expected {expected_type}.")
+                raise ConfigError(f"Неверный тип ключа '{key}' в конфигурационном файле {config_yaml_path}. Ожидается {expected_type}.")
 
-        experience_levels = ['internship', 'entry', 'associate', 'mid-senior level', 'director', 'executive']
-        for level in experience_levels:
-            if not isinstance(parameters['experienceLevel'].get(level), bool):
-                raise ConfigError(f"Experience level '{level}' must be a boolean in config file {config_yaml_path}")
+        # Проверить все поля и значения настройки "Искать только"
+        search_only_list = ['vacancy_name', 'company_name', 'vacancy_description']
+        for search in search_only_list:
+            if not isinstance(parameters['search_only'].get(search), bool):
+                raise ConfigError(f"Поле 'search_only -> {search}' должно иметь тип bool в конфигурационном файле {config_yaml_path}")
+            
+        # Проверить все поля и значения настройки "Образование"
+        education = ['not_needed', 'middle', 'higher']
+        for edu in education:
+            if not isinstance(parameters['education'].get(edu), bool):
+                raise ConfigError(f"Поле 'education -> {edu}' должно иметь тип bool в конфигурационном файле {config_yaml_path}")
 
-        job_types = ['full-time', 'contract', 'part-time', 'temporary', 'internship', 'other', 'volunteer']
-        for job_type in job_types:
-            if not isinstance(parameters['jobTypes'].get(job_type), bool):
-                raise ConfigError(f"Job type '{job_type}' must be a boolean in config file {config_yaml_path}")
+        # Проверить все поля и значения настройки "Опыт"
+        experience = ['doesnt_matter', 'no_experience', 'between_1_and_3', 'between_3_and_6', '6_and_more']
+        exp_value_counter = 0
+        for exp in experience:
+            exp_value = parameters['experience'].get(exp)
+            exp_value_counter += exp_value
+            if not isinstance(exp_value, bool):
+                raise ConfigError(f"Поле 'experience -> {exp}' должно иметь тип bool в конфигурационном файле {config_yaml_path}")
+        if exp_value_counter > 1:
+            raise ConfigError(f"Среди значение 'experience' только одно может иметь значение true в конфигурационном файле {config_yaml_path}")
 
-        date_filters = ['all time', 'month', 'week', '24 hours']
-        for date_filter in date_filters:
-            if not isinstance(parameters['date'].get(date_filter), bool):
-                raise ConfigError(f"Date filter '{date_filter}' must be a boolean in config file {config_yaml_path}")
+        # Проверить все поля и значения настройки "Тип занятости"
+        job_type = ['full_time', 'part_time', 'project', 'volunteer', 'probation', 'civil_law_contract']
+        for j_t in job_type:
+            if not isinstance(parameters['job_type'].get(j_t), bool):
+                raise ConfigError(f"Поле 'job_type -> {j_t}' должно иметь тип bool в конфигурационном файле {config_yaml_path}")
 
-        if not all(isinstance(pos, str) for pos in parameters['positions']):
-            raise ConfigError(f"'positions' must be a list of strings in config file {config_yaml_path}")
-        if not all(isinstance(loc, str) for loc in parameters['locations']):
-            raise ConfigError(f"'locations' must be a list of strings in config file {config_yaml_path}")
+        # Проверить все поля и значения настройки "График работы"
+        work_schedule = ['full_day', 'shift', 'flexible', 'remote', 'fly_in_fly_out']
+        for w_s in work_schedule:
+            if not isinstance(parameters['work_schedule'].get(w_s), bool):
+                raise ConfigError(f"Поле 'work_schedule -> {w_s}' должно иметь тип bool в конфигурационном файле {config_yaml_path}")
+            
+        # Проверить все поля и значения настройки "Подработка"
+        side_job = ['one_time_task', 'part_time', 'from_4_hours_per_day', 'weekend', 'evenings']
+        for s_j in side_job:
+            if not isinstance(parameters['side_job'].get(s_j), bool):
+                raise ConfigError(f"Поле 'side_job -> {s_j}' должно иметь тип bool в конфигурационном файле {config_yaml_path}")
+            
+        # Проверить все поля и значения настройки "Другие параметры"
+        other_params = ['with_address', 'accept_handicapped', 'not_from_agency', 'accept_kids', 'accredited_it', 'low_performance']
+        for o_p in other_params:
+            if not isinstance(parameters['other_params'].get(o_p), bool):
+                raise ConfigError(f"Поле 'other_params -> {o_p}' должно иметь тип bool в конфигурационном файле {config_yaml_path}")
 
-        approved_distances = {0, 5, 10, 25, 50, 100}
-        if parameters['distance'] not in approved_distances:
-            raise ConfigError(f"Invalid distance value in config file {config_yaml_path}. Must be one of: {approved_distances}")
+        # Проверить все поля и значения настройки "Сортировка"
+        sort_by = ['relevance', 'publication_time', 'salary_desc', 'salary_asc']
+        sort_value_counter = 0
+        for s_b in sort_by:
+            sort_value = parameters['sort_by'].get(s_b)
+            sort_value_counter += sort_value
+            if not isinstance(sort_value, bool):
+                raise ConfigError(f"Поле 'sort_by -> {s_b}' должно иметь тип bool в конфигурационном файле {config_yaml_path}")
+        if sort_value_counter > 1:
+            raise ConfigError(f"Среди значение 'sort_by' только одно может иметь значение true в конфигурационном файле {config_yaml_path}")
 
-        for blacklist in ['companyBlacklist', 'titleBlacklist']:
-            if not isinstance(parameters.get(blacklist), list):
-                raise ConfigError(f"'{blacklist}' must be a list in config file {config_yaml_path}")
-            if parameters[blacklist] is None:
-                parameters[blacklist] = []
+        # Проверить все поля и значения настройки "Выводить"
+        output_period = ['all_time', 'month', 'week', 'three_days', 'one_day']
+        output_value_counter = 0
+        for o_p in output_period:
+            output_period_value = parameters['output_period'].get(o_p)
+            output_value_counter += output_period_value
+            if not isinstance(output_period_value, bool):
+                raise ConfigError(f"Поле 'output_value -> {o_p}' должно иметь тип bool в конфигурационном файле {config_yaml_path}")
+        if output_value_counter > 1:
+            raise ConfigError(f"Среди значение 'output_period' только одно может иметь значение true в конфигурационном файле {config_yaml_path}")
 
+        # Проверить все поля и значения настройки "Показывать на странице"
+        output_size = ['show_20', 'show_50', 'show_100']
+        output_size_value_counter = 0
+        for o_s in output_size:
+            output_size_value = parameters['output_size'].get(o_s)
+            output_size_value_counter += output_size_value
+            if not isinstance(output_size_value, bool):
+                raise ConfigError(f"Поле 'output_size -> {o_s}' должно иметь тип bool в конфигурационном файле {config_yaml_path}")
+        if output_size_value_counter > 1:
+            raise ConfigError(f"Среди значение 'output_size' только одно может иметь значение true в конфигурационном файле {config_yaml_path}")
+        
         return parameters
-
-
 
     @staticmethod
     def validate_secrets(secrets_yaml_path: Path) -> tuple:
@@ -127,6 +176,7 @@ class ConfigValidator:
             raise ConfigError(f"llm_api_key cannot be empty in secrets file {secrets_yaml_path}.")
         return secrets['llm_api_key']
 
+
 class FileManager:
     @staticmethod
     def find_file(name_containing: str, with_extension: str, at_path: Path) -> Path:
@@ -134,6 +184,7 @@ class FileManager:
 
     @staticmethod
     def validate_data_folder(app_data_folder: Path) -> tuple:
+        """Проверяет, что все необходимые файлы находятся в папке данных"""
         if not app_data_folder.exists() or not app_data_folder.is_dir():
             raise FileNotFoundError(f"Data folder not found: {app_data_folder}")
 
@@ -141,7 +192,7 @@ class FileManager:
         missing_files = [file for file in required_files if not (app_data_folder / file).exists()]
         
         if missing_files:
-            raise FileNotFoundError(f"Missing files in the data folder: {', '.join(missing_files)}")
+            raise FileNotFoundError(f"В папке данных отсутствуют файлы: {', '.join(missing_files)}")
 
         output_folder = app_data_folder / 'output'
         output_folder.mkdir(exist_ok=True)
@@ -161,9 +212,9 @@ class FileManager:
 
         return result
 
-def init_browser() -> webdriver.Chrome:
+
+def init_driver() -> webdriver.Chrome:
     try:
-        
         options = chrome_browser_options()
         service = ChromeService(ChromeDriverManager().install())
         return webdriver.Chrome(service=service, options=options)
@@ -172,26 +223,26 @@ def init_browser() -> webdriver.Chrome:
 
 def create_and_run_bot(parameters, llm_api_key):
     try:
-        style_manager = StyleManager()
-        resume_generator = ResumeGenerator()
-        with open(parameters['uploads']['plainTextResume'], "r", encoding='utf-8') as file:
-            plain_text_resume = file.read()
-        resume_object = Resume(plain_text_resume)
-        resume_generator_manager = FacadeManager(llm_api_key, style_manager, resume_generator, resume_object, Path("data_folder/output"))
-        os.system('cls' if os.name == 'nt' else 'clear')
-        resume_generator_manager.choose_style()
-        os.system('cls' if os.name == 'nt' else 'clear')
+        # style_manager = StyleManager()
+        # resume_generator = ResumeGenerator()
+        # with open(parameters['uploads']['plainTextResume'], "r", encoding='utf-8') as file:
+        #     plain_text_resume = file.read()
+        # resume_object = Resume(plain_text_resume)
+        # resume_generator_manager = FacadeManager(llm_api_key, style_manager, resume_generator, resume_object, Path("data_folder/output"))
+        # os.system('cls' if os.name == 'nt' else 'clear')
+        # resume_generator_manager.choose_style()
+        # os.system('cls' if os.name == 'nt' else 'clear')
         
-        job_application_profile_object = JobApplicationProfile(plain_text_resume)
+        # job_application_profile_object = JobApplicationProfile(plain_text_resume)
         
-        browser = init_browser()
-        login_component = AIHawkAuthenticator(browser)
-        apply_component = AIHawkJobManager(browser)
+        driver = init_driver()
+        login_component = AIHawkAuthenticator(driver)
+        apply_component = JobManager(driver)
         gpt_answerer_component = GPTAnswerer(parameters, llm_api_key)
         bot = AIHawkBotFacade(login_component, apply_component)
-        bot.set_job_application_profile_and_resume(job_application_profile_object, resume_object)
-        bot.set_gpt_answerer_and_resume_generator(gpt_answerer_component, resume_generator_manager)
-        bot.set_parameters(parameters)
+        # bot.set_job_application_profile_and_resume(job_application_profile_object, resume_object)
+        # bot.set_gpt_answerer_and_resume_generator(gpt_answerer_component, resume_generator_manager)
+        # bot.set_parameters(parameters)
         bot.start_login()
         bot.start_apply()
     except WebDriverException as e:
@@ -210,8 +261,8 @@ def main(resume: Path = None):
         parameters = ConfigValidator.validate_config(config_file)
         llm_api_key = ConfigValidator.validate_secrets(secrets_file)
         
-        parameters['uploads'] = FileManager.file_paths_to_dict(resume, plain_text_resume_file)
-        parameters['outputFileDirectory'] = output_folder
+        # parameters['uploads'] = FileManager.file_paths_to_dict(resume, plain_text_resume_file)
+        # parameters['outputFileDirectory'] = output_folder
         
         create_and_run_bot(parameters, llm_api_key)
     except ConfigError as ce:

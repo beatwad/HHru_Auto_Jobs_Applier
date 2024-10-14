@@ -15,10 +15,10 @@ specialization: Программист  # Специализация
 
 industry: Банк  # Отрасль компании
 
-region:  # Регион
+regions:  # Регион
   - Москва
 
-district:  # Район
+districts:  # Район
   - Замоскворечье
   - Нагатинcкий затон
 
@@ -90,3 +90,7 @@ output_size:  # Показывать на странице  !!! check that only 
 
 llm_model_type: openai
 llm_model: 'gpt-4o-mini'
+
+job_blacklist:
+  - Google
+  - Meta
