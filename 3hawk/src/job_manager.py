@@ -16,8 +16,8 @@ from selenium.webdriver.support.ui import WebDriverWait
 
 import src.utils as utils
 from app_config import MINIMUM_WAIT_TIME
-from src.job import Job
-from src.aihawk_easy_applier import AIHawkEasyApplier
+# from src.job import Job
+# from src.aihawk_easy_applier import AIHawkEasyApplier
 from loguru import logger
 
 

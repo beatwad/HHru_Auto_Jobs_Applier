@@ -1,3 +1,6 @@
+login:  # Логин: email или телефон
+  beatwad@gmail.com
+
 keywords:  # Ключевые слова
   - Data scientist
   - ML инженер
