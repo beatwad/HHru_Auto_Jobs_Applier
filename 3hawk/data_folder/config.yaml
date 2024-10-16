@@ -1,99 +1,33 @@
-login:  # Логин: email или телефон
+login:  # Логин: email или телефон (обязательное поле)
   beatwad@gmail.com
 
-keywords:  # Ключевые слова
-  - Data scientist
+keywords:  # Ключевые слова (обязательное поле)
   - ML инженер
 
-search_only:  # Искать только
-  vacancy_name: true  # в названии вакансии
-  company_name: false  # в названии компании
-  vacancy_description: true  # в описании вакансии
-
-words_to_exclude:  # Исключить слова
-  - Аналитик
-  - Analyst
-
-specialization: Программист  # Специализация
-
-industry: Банк  # Отрасль компании
-
-regions:  # Регион
-  - Москва
-
-districts:  # Район
-  - Замоскворечье
-  - Нагатинcкий затон
-
-subway:  # Метро
-  - Курская
-  - Новогиреево
-
-income: 300000  # Уровень дохода
-
-education:  # Образование
-  not_needed: true  # Не требуется или не указано
-  middle: true  # Среднее профессиональное
-  higher: true  # Высшее
-
-experience: # Требуемый опыт работы
-  doesnt_matter: false  # Не имеет значения
+experience: # Требуемый опыт работы (обязательное поле)
+  doesnt_matter: true  # Не имеет значения
   no_experience: false  # Нет опыта
-  between_1_and_3: true  # От 1 года до 3 лет
+  between_1_and_3: false  # От 1 года до 3 лет
   between_3_and_6: false  # От 3 до 6 лет
   6_and_more: false  # Более 6 лет
 
-job_type:  # Тип занятости
-  full_time: true  # Полная занятость
-  part_time: false  # Частичная занятость
-  project: false  # Проектная работа/разовое задание
-  volunteer: false  # Волонтерство
-  probation: false  # Стажировка
-  civil_law_contract: true  # Оформление по ГПХ или по совместительству
+sort_by:  # Сортировать выдачу (обязательное поле):
+  relevance: true  # по соответствию
+  publication_time: false  # по дате изменения
+  salary_desc: false  # ао убыванию зарплат
+  salary_asc: false  # ао возрастанию зарплаты
 
-work_schedule:  # График работы
-  full_day: false  # Полный день
-  shift: false  # Сменный график
-  flexible: true  # Гибкий график
-  remote: true  # Удаленная работа
-  fly_in_fly_out: false  # Вахтовый метод
+output_period:  # Выводить (обязательное поле):
+  all_time: true  # за всё время
+  month: false  # за месяц
+  week: false  # за неделю
+  three_days: false  # за последние три дня
+  one_day: false  # за сутки
 
-side_job:  # Подработка
-  one_time_task: false  # Разовое задание
-  part_time: false  # Неполный день
-  from_4_hours_per_day: false  # От 4 часов в день
-  weekend: false  # По выходным
-  evenings: false  # По вечерам
-
-other_params:  # Другие параметры
-  with_address: false  # С адресом
-  accept_handicapped: false  # Доступные людям с инвалидностью
-  not_from_agency: true  # Без вакансий от кадровых агентств
-  accept_kids: false  # Доступные с 14 лет
-  accredited_it: true  # От аккредитованных ИТ-компаний
-  low_performance: true  # Меньше 10 откликов
-
-sort_by:  # Сортировка
-  relevance: true  # По соответствию
-  publication_time: false  # По дате изменения
-  salary_desc: false  # По убыванию зарплат
-  salary_asc: false  # По возрастанию зарплаты
-
-output_period:  # Выводить 
-  all_time: true  # За всё время
-  month: false  # За месяц
-  week: false  #  За неделю
-  three_days: false  # За последние три дня
-  one_day: false  # За сутки
-
-output_size:  # Показывать на странице  !!! check that only one value is true
+output_size:  # Показывать на странице (обязательное поле): 
   show_20: false
   show_50: true
   show_100: false
 
-llm_model_type: openai
-llm_model: 'gpt-4o-mini'
-
-job_blacklist:
-  - Google
-  - Meta
+llm_model_type: openai  # Тип LLM (обязательное поле)
+llm_model: 'gpt-4o-mini'  # Модель LLM (обязательное поле)
