@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Dict, Tuple
 
 import json
 import os
@@ -16,13 +16,14 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
 import src.utils as utils
-from app_config import MINIMUM_WAIT_TIME
+from app_config import MINIMUM_WAIT_TIME_SEC
 # from src.job import Job
 # from src.aihawk_easy_applier import AIHawkEasyApplier
 from loguru import logger
 
 
 class JobManager:
+    """Класс для поиска и рассылки откликов работодателям"""
     def __init__(self, driver):
         logger.debug("Инициализация JobManager")
         self.driver = driver
@@ -31,7 +32,8 @@ class JobManager:
         # self.easy_applier_component = None
         logger.debug("JobManager успешно инициализирован")
 
-    def set_parameters(self, parameters):
+    def set_parameters(self, parameters: dict):
+        """Установка параметрок поиска"""
         logger.debug("Установка параметров JobManager")
         # загрузка обязательных параметров
         self.keywords = parameters['keywords']
@@ -54,8 +56,8 @@ class JobManager:
         self.side_job = parameters.get('side_job', {})
         self.other_params = parameters.get('other_params', {})
         self.seen_jobs = []
+        self.page_num = 1
         logger.debug("Параметры успешно установлены")
-        # загрузка необязательных параметров
     
     def set_advanced_search_params(self) -> None:
         """Задать дополнительные параметры поиска в hh.ru"""
@@ -87,124 +89,116 @@ class JobManager:
             pass
         self._start_search()
 
-
-    def start_applying(self):
-        logger.debug("Starting job application process")
-        # self.easy_applier_component = AIHawkEasyApplier(self.driver, self.resume_path, self.set_old_answers,
-        #                                                   self.gpt_answerer, self.resume_generator_manager)
-        searches = list(product(self.positions, self.locations))
-        random.shuffle(searches)
-        page_sleep = 0
-        minimum_time = MINIMUM_WAIT_TIME
-        minimum_page_time = time.time() + minimum_time
-
-        for position, location in searches:
-            location_url = "&location=" + location
-            job_page_number = -1
-            logger.debug(f"Starting the search for {position} in {location}.")
-
+    def start_applying(self) -> None:
+        """Разослать отклики всем работодателям на всех страницах"""
+        while True:
             try:
-                while True:
-                    page_sleep += 1
-                    job_page_number += 1
-                    logger.debug(f"Going to job page {job_page_number}")
-                    self.next_job_page(position, location_url, job_page_number)
-                    time.sleep(random.uniform(1.5, 3.5))
-                    logger.debug("Starting the application process for this page...")
-
+                # идем по всем страницам пока они не закончатся
+                if self.page_num > 1:
+                    text = f"number-pages-{self.page_num}"
                     try:
-                        jobs = self.get_jobs_from_page()
-                        if not jobs:
-                            logger.debug("No more jobs found on this page. Exiting loop.")
-                            break
-                    except Exception as e:
-                        logger.error(f"Failed to retrieve jobs: {e}")
+                        next_page = self.driver.find_element("xpath", f"//*[starts-with(@data-qa, '{text}')]")
+                        next_page.click()
+                    except NoSuchElementException:
                         break
-
-                    try:
-                        self.apply_jobs()
-                    except Exception as e:
-                        logger.error(f"Error during job application: {e}")
-                        continue
-
-                    logger.debug("Applying to jobs on this page has been completed!")
-
-                    time_left = minimum_page_time - time.time()
-
-                    # Ask user if they want to skip waiting, with timeout
-                    if time_left > 0:
-                        try:
-                            user_input = inputimeout(
-                                prompt=f"Sleeping for {time_left} seconds. Press 'y' to skip waiting. Timeout 60 seconds : ",
-                                timeout=60).strip().lower()
-                        except TimeoutOccurred:
-                            user_input = ''  # No input after timeout
-                        if user_input == 'y':
-                            logger.debug("User chose to skip waiting.")
-                        else:
-                            logger.debug(f"Sleeping for {time_left} seconds as user chose not to skip.")
-                            time.sleep(time_left)
-
-                    minimum_page_time = time.time() + minimum_time
-
-                    if page_sleep % 5 == 0:
-                        sleep_time = random.randint(5, 34)
-                        try:
-                            user_input = inputimeout(
-                                prompt=f"Sleeping for {sleep_time / 60} minutes. Press 'y' to skip waiting. Timeout 60 seconds : ",
-                                timeout=60).strip().lower()
-                        except TimeoutOccurred:
-                            user_input = ''  # No input after timeout
-                        if user_input == 'y':
-                            logger.debug("User chose to skip waiting.")
-                        else:
-                            logger.debug(f"Sleeping for {sleep_time} seconds.")
-                            time.sleep(sleep_time)
-                        page_sleep += 1
+                self._send_repsonses()
+                self.page_num += 1
+                # делать случайную паузу на каждой странице
+                self._sleep(20, 40)
+                logger.debug(f"Переходим на страницу {self.page_num}")
             except Exception as e:
-                logger.error(f"Unexpected error during job search: {e}")
+                logger.error(f"Неизвестная ошибка: {e}")
                 continue
-
-            time_left = minimum_page_time - time.time()
-
-            if time_left > 0:
-                try:
-                    user_input = inputimeout(
-                        prompt=f"Sleeping for {time_left} seconds. Press 'y' to skip waiting. Timeout 60 seconds : ",
-                        timeout=60).strip().lower()
-                except TimeoutOccurred:
-                    user_input = ''  # No input after timeout
-                if user_input == 'y':
-                    logger.debug("User chose to skip waiting.")
-                else:
-                    logger.debug(f"Sleeping for {time_left} seconds as user chose not to skip.")
-                    time.sleep(time_left)
-
-            minimum_page_time = time.time() + minimum_time
-
-            if page_sleep % 5 == 0:
-                sleep_time = random.randint(50, 90)
-                try:
-                    user_input = inputimeout(
-                        prompt=f"Sleeping for {sleep_time / 60} minutes. Press 'y' to skip waiting: ",
-                        timeout=60).strip().lower()
-                except TimeoutOccurred:
-                    user_input = ''  # No input after timeout
-                if user_input == 'y':
-                    logger.debug("User chose to skip waiting.")
-                else:
-                    logger.debug(f"Sleeping for {sleep_time} seconds.")
-                    time.sleep(sleep_time)
-                page_sleep += 1
-
     
+    def _send_repsonses(self, page_sleep: int) -> None:
+        """Разослать отклики всем работодателям на странице"""
+        minimum_time = MINIMUM_WAIT_TIME_SEC
+        minimum_page_time = time.time() + minimum_time
+        employers = self.driver.find_elements("xpath", f"//*[starts-with(@data-qa, 'serp-item__title-text')]")
+        random.shuffle(employers)
+        for employer in employers:
+            # зайти на страницу к работодателю
+            employer.click()
+            window_handles = self.driver.window_handles
+            self.driver.switch_to.window(window_handles[-1])
+            # собрать описание вакансии
+            description = self._scrape_employer_page()
+            title = description["title"]
+            experience = description["experience"]
+            company_name = description["company_name"]
+            company_address = description["company_address"]
+            # если вакансия еще не встречалась - записать ее в список уже просмотренных вакансий
+            job = f"{company_name}_{company_address}_{title}_{experience}"
+            logger.debug(f"Найдена вакансия {job}")
+            if job not in self.seen_jobs:
+                logger.debug(f"Вакансия еще не встречалась")
+                self.seen_jobs.append(job)
+                self.apply_jobs() # TODO: get description and CV and send them to LLM
+            else:
+                logger.debug(f"Вакансия уже встречалась, пропускаем")
+            # вернуться обратно на страницу поиска
+            self.driver.close()
+            self.driver.switch_to.window(window_handles[0])
+        # если страница была обработана быстрее, чем за минимальное время - 
+        # подождать, пока это время не закончится       
+        time_left = minimum_page_time - time.time()
+        if time_left > 0:
+            self._sleep(time_left, time_left + 5)
+                
+
+    def _scrape_employer_page(self) -> Dict[str, str]:
+        """
+        Собрать всю информацию о работодателе со страницы
+        для дальнейшей передачи в LLM
+        """
+        employer_description = {}
+
+        description_keys = [
+            "title", "salary", "experience", "job_type", "company_name", 
+            "company_address", "company_address", "vacancy_description",
+            "vacancy_description", "skills"
+            ]
+        data_qas = [
+            "vacancy-title", "vacancy-salary-compensation-type-net", "vacancy-experience",
+            "vacancy-view-employment-mode", "vacancy-company-name",
+            "vacancy-view-raw-address", "vacancy-view-location", "vacancy-branded", 
+            "vacancy-description", "skills-element"
+            ]
+
+        for key, data_qa in zip(description_keys, data_qas):
+            if key == "skills":
+                skill_list = self.driver.find_elements("xpath", f"//*[@data-qa='{data_qa}']")
+                skill_list = [skill.text for skill in skill_list]
+                employer_description["skills"] = ', '.join(skill_list)
+                continue
+            if key in ["company_address", "vacancy_description"] and employer_description.get(key) is not None:
+                continue
+            try:
+                employer_description[key] = self.driver.find_element("xpath", f"//*[@data-qa='{data_qa}']").text
+            except NoSuchElementException:
+                employer_description[key] = None
+        
+        return employer_description
+    
+    def _sleep(self, sleep_interval: Tuple[int, int]) -> None:
+        low, high = sleep_interval
+        sleep_time = random.randint(low, high)
+        try:
+            user_input = inputimeout(
+                prompt=f"Делаем паузу на {sleep_time / 60} минут(ы). Нажмите Enter, чтобы прекратить ожидание.",
+                timeout=60).strip().lower()
+        except TimeoutOccurred:
+            user_input = ''  # No input after timeout
+        if user_input == 'y':
+            logger.debug("Прекращаем ожидание.")
+        else:
+            logger.debug(f"Ожидание продлилось {sleep_time} секунд.")
+            time.sleep(sleep_time)
+
     def set_gpt_answerer(self, gpt_answerer):
         pass
 
     def set_resume_generator_manager(self, resume_generator_manager):
-        pass
-
-    def start_applying(self):
         pass
 
     def get_jobs_from_page(self):
@@ -226,6 +220,7 @@ class JobManager:
         pass
 
     def is_blacklisted(self, job_title, company, link):
+        # TODO: добавить черный список компаний
         pass
 
     def is_already_applied_to_job(self, job_title, company, link):

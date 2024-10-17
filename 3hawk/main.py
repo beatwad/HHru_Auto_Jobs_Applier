@@ -11,7 +11,7 @@ from selenium.webdriver.chrome.service import Service as ChromeService
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.common.exceptions import WebDriverException
 from src.utils import chrome_browser_options
-# from src.llm.llm_manager import GPTAnswerer
+from src.llm.llm_manager import GPTAnswerer
 from src.authenticator import Authenticator
 from src.bot_facade import BotFacade
 from src.job_manager import JobManager
@@ -206,29 +206,13 @@ class FileManager:
         if not app_data_folder.exists() or not app_data_folder.is_dir():
             raise FileNotFoundError(f"Data folder not found: {app_data_folder}")
 
-        required_files = ['secrets.yaml', 'config.yaml', 'plain_text_resume.yaml']
+        required_files = ['secrets.yaml', 'config.yaml', 'resume.txt']
         missing_files = [file for file in required_files if not (app_data_folder / file).exists()]
         
         if missing_files:
             raise FileNotFoundError(f"В папке данных отсутствуют файлы: {', '.join(missing_files)}")
 
-        output_folder = app_data_folder / 'output'
-        output_folder.mkdir(exist_ok=True)
-        return (app_data_folder / 'secrets.yaml', app_data_folder / 'config.yaml', app_data_folder / 'plain_text_resume.yaml', output_folder)
-
-    @staticmethod
-    def file_paths_to_dict(resume_file: Path | None, plain_text_resume_file: Path) -> dict:
-        if not plain_text_resume_file.exists():
-            raise FileNotFoundError(f"Plain text resume file not found: {plain_text_resume_file}")
-
-        result = {'plainTextResume': plain_text_resume_file}
-
-        if resume_file:
-            if not resume_file.exists():
-                raise FileNotFoundError(f"Resume file not found: {resume_file}")
-            result['resume'] = resume_file
-
-        return result
+        return (app_data_folder / 'secrets.yaml', app_data_folder / 'config.yaml', app_data_folder / 'resume.txt', app_data_folder)
 
 
 def init_driver() -> webdriver.Chrome:
@@ -245,14 +229,14 @@ def create_and_run_bot(parameters, llm_api_key):
         driver = init_driver()
         login_component = Authenticator(driver)
         apply_component = JobManager(driver)
-        # gpt_answerer_component = GPTAnswerer(parameters, llm_api_key)
+        gpt_answerer_component = GPTAnswerer(parameters, llm_api_key)
         bot = BotFacade(login_component, apply_component)
         # bot.set_job_application_profile_and_resume(job_application_profile_object, resume_object)
         # bot.set_gpt_answerer_and_resume_generator(gpt_answerer_component, resume_generator_manager)
         bot.set_parameters(parameters)
         bot.start_login()
         bot.set_search_parameters()
-        # bot.start_apply()
+        bot.start_apply()
     except WebDriverException as e:
         logger.error(f"WebDriver error occurred: {e}")
     # except Exception as e:
@@ -267,13 +251,12 @@ def get_traceback(exc: Exception) -> str:
 def main(resume: Path = None):
     try:
         data_folder = Path("data_folder")
-        secrets_file, config_file, plain_text_resume_file, output_folder = FileManager.validate_data_folder(data_folder)
+        secrets_file, config_file, resume_file, output_folder = FileManager.validate_data_folder(data_folder)
         
         config_validator = ConfigValidator()
         parameters = config_validator.validate_config(config_file)
         llm_api_key = config_validator.validate_secrets(secrets_file)
         
-        # parameters['uploads'] = FileManager.file_paths_to_dict(resume, plain_text_resume_file)
         # parameters['outputFileDirectory'] = output_folder
         
         create_and_run_bot(parameters, llm_api_key)
