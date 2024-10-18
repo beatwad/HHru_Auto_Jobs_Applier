@@ -11,7 +11,7 @@ class BotState:
         self.credentials_set = False
         self.api_key_set = False
         self.search_parameters_set = False
-        self.job_application_profile_set = False
+        self.resume_profile_set = False
         self.gpt_answerer_set = False
         self.parameters_set = False
         self.logged_in = False
@@ -31,7 +31,7 @@ class BotFacade:
         self.login_component = login_component # Authenticator
         self.apply_component = apply_component # JobManager
         self.state = BotState()
-        self.job_application_profile = None
+        self.resume_profile = None
         self.resume = None
         self.email = None
         self.password = None
@@ -63,28 +63,28 @@ class BotFacade:
         self.state.search_parameters_set = True
         logger.debug("Параметры поиска установлены успешно")
     
-    # def set_job_application_profile_and_resume(self, job_application_profile, resume):
-    #     logger.debug("Setting job application profile and resume")
-    #     self._validate_non_empty(job_application_profile, "Job application profile")
-    #     self._validate_non_empty(resume, "Resume")
-    #     self.job_application_profile = job_application_profile
-    #     self.resume = resume
-    #     self.state.job_application_profile_set = True
-    #     logger.debug("Job application profile and resume set successfully")
+    def set_resume_profile_and_resume(self, resume_profile, resume):
+        """Загружаем резюме и профиль резюме"""
+        logger.debug("Загружаем резюме и его профиль")
+        self._validate_non_empty(resume_profile, "Профиль резюме")
+        self._validate_non_empty(resume, "Резюме")
+        self.resume_profile = resume_profile
+        self.resume = resume
+        self.state.resume_profile_set = True
+        logger.debug("Резюме и его профиль загружены успешно")
 
-    # def set_gpt_answerer_and_resume_generator(self, gpt_answerer_component, resume_generator_manager):
-    #     logger.debug("Setting GPT answerer and resume generator")
-    #     self._ensure_job_profile_and_resume_set()
-    #     gpt_answerer_component.set_job_application_profile(self.job_application_profile)
-    #     gpt_answerer_component.set_resume(self.resume)
-    #     self.apply_component.set_gpt_answerer(gpt_answerer_component)
-    #     self.apply_component.set_resume_generator_manager(resume_generator_manager)
-    #     self.state.gpt_answerer_set = True
-    #     logger.debug("GPT answerer and resume generator set successfully")
+    def set_gpt_answerer(self, gpt_answerer_component):
+        logger.debug("Setting GPT answerer and resume generator")
+        self._ensure_job_profile_and_resume_set()
+        gpt_answerer_component.set_resume_profile(self.resume_profile)
+        gpt_answerer_component.set_resume(self.resume)
+        self.apply_component.set_gpt_answerer(gpt_answerer_component)
+        self.state.gpt_answerer_set = True
+        logger.debug("GPT answerer and resume generator set successfully")
 
     def start_apply(self):
         logger.debug("Starting apply process")
-        # self.state.validate_state(['logged_in', 'job_application_profile_set', 'gpt_answerer_set', 'parameters_set'])
+        # self.state.validate_state(['logged_in', 'resume_profile_set', 'gpt_answerer_set', 'parameters_set'])
         self.state.validate_state(['logged_in', 'parameters_set', 'search_parameters_set'])
         self.apply_component.start_applying()
         logger.debug("Apply process started successfully")
@@ -98,7 +98,7 @@ class BotFacade:
 
     def _ensure_job_profile_and_resume_set(self):
         logger.debug("Ensuring job profile and resume are set")
-        if not self.state.job_application_profile_set:
+        if not self.state.resume_profile_set:
             logger.error("Job application profile and resume are not set")
             raise ValueError("Job application profile and resume must be set before proceeding.")
         logger.debug("Job profile and resume are set")

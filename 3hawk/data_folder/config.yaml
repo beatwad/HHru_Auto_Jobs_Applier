@@ -1,6 +1,8 @@
 login:  # Логин: email или телефон (обязательное поле)
   beatwad@gmail.com
 
+number_of_resume_to_select: 1 # Какое по счету резюме из имеющихся выбрать
+
 keywords:  # Ключевые слова (обязательное поле)
   - ML инженер
 
@@ -28,6 +30,7 @@ output_size:  # Показывать на странице (обязательн
   show_20: false
   show_50: true
   show_100: false
+
 
 llm_model_type: openai  # Тип LLM (обязательное поле)
 llm_model: 'gpt-4o-mini'  # Модель LLM (обязательное поле)

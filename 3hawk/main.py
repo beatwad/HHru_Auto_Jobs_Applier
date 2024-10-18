@@ -15,7 +15,7 @@ from src.llm.llm_manager import GPTAnswerer
 from src.authenticator import Authenticator
 from src.bot_facade import BotFacade
 from src.job_manager import JobManager
-# from src.job_application_profile import JobApplicationProfile
+from src.job_application_profile import JobApplicationProfile
 from loguru import logger
 
 log_file = "log/app_log.log"
@@ -202,17 +202,31 @@ class FileManager:
 
     @staticmethod
     def validate_data_folder(app_data_folder: Path) -> tuple:
-        """Проверяет, что все необходимые файлы находятся в папке данных"""
         if not app_data_folder.exists() or not app_data_folder.is_dir():
             raise FileNotFoundError(f"Data folder not found: {app_data_folder}")
 
-        required_files = ['secrets.yaml', 'config.yaml', 'resume.txt']
+        required_files = ['secrets.yaml', 'config.yaml', 'plain_text_resume.yaml', 'resume.txt']
         missing_files = [file for file in required_files if not (app_data_folder / file).exists()]
         
         if missing_files:
-            raise FileNotFoundError(f"В папке данных отсутствуют файлы: {', '.join(missing_files)}")
+            raise FileNotFoundError(f"Missing files in the data folder: {', '.join(missing_files)}")
 
-        return (app_data_folder / 'secrets.yaml', app_data_folder / 'config.yaml', app_data_folder / 'resume.txt', app_data_folder)
+        output_folder = app_data_folder / 'output'
+        output_folder.mkdir(exist_ok=True)
+        return (app_data_folder / 'secrets.yaml', app_data_folder / 'config.yaml', app_data_folder / 'plain_text_resume.yaml', app_data_folder / 'resume.txt')
+    
+    @staticmethod
+    def file_paths_to_dict(resume_file: Path, plain_text_resume_file: Path) -> dict:
+        """Добавить в параметры файлы резюме"""
+        if not plain_text_resume_file.exists():
+            raise FileNotFoundError(f"Plain text resume file not found: {plain_text_resume_file}")
+        
+        if not resume_file.exists():
+                raise FileNotFoundError(f"Resume file not found: {resume_file}")
+
+        result = {'plainTextResume': plain_text_resume_file, 'resume': resume_file}
+
+        return result
 
 
 def init_driver() -> webdriver.Chrome:
@@ -226,21 +240,27 @@ def init_driver() -> webdriver.Chrome:
 
 def create_and_run_bot(parameters, llm_api_key):
     try:
+        with open(parameters['uploads']['plainTextResume'], 'r') as stream:
+            resume_profile =  yaml.safe_load(stream)
+        with open(parameters['uploads']['resume'], "r", encoding='utf-8') as file:
+            resume = file.read()
+        
         driver = init_driver()
         login_component = Authenticator(driver)
-        apply_component = JobManager(driver)
         gpt_answerer_component = GPTAnswerer(parameters, llm_api_key)
+        apply_component = JobManager(driver)
         bot = BotFacade(login_component, apply_component)
-        # bot.set_job_application_profile_and_resume(job_application_profile_object, resume_object)
-        # bot.set_gpt_answerer_and_resume_generator(gpt_answerer_component, resume_generator_manager)
+        
+        bot.set_resume_profile_and_resume(resume_profile, resume)
+        bot.set_gpt_answerer(gpt_answerer_component)
         bot.set_parameters(parameters)
         bot.start_login()
         bot.set_search_parameters()
         bot.start_apply()
     except WebDriverException as e:
         logger.error(f"WebDriver error occurred: {e}")
-    # except Exception as e:
-    #     raise RuntimeError(f"Error running the bot: {str(e)}")
+    except Exception as e:
+        raise RuntimeError(f"Error running the bot: {str(e)}")
 
 def get_traceback(exc: Exception) -> str:
     tb = traceback.extract_tb(exc.__traceback__)[-1]
@@ -248,16 +268,16 @@ def get_traceback(exc: Exception) -> str:
 
 # @click.command()
 # @click.option('--resume', type=click.Path(exists=True, file_okay=True, dir_okay=False, path_type=Path), help="Path to the resume PDF file")
-def main(resume: Path = None):
+def main():
     try:
         data_folder = Path("data_folder")
-        secrets_file, config_file, resume_file, output_folder = FileManager.validate_data_folder(data_folder)
+        secrets_file, config_file, plain_text_resume_file, resume = FileManager.validate_data_folder(data_folder)
         
         config_validator = ConfigValidator()
         parameters = config_validator.validate_config(config_file)
         llm_api_key = config_validator.validate_secrets(secrets_file)
         
-        # parameters['outputFileDirectory'] = output_folder
+        parameters['uploads'] = FileManager.file_paths_to_dict(resume, plain_text_resume_file)
         
         create_and_run_bot(parameters, llm_api_key)
     except ConfigError as ce:

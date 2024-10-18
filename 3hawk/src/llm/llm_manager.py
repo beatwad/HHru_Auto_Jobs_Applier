@@ -133,7 +133,6 @@ class AIAdapter:
 
 
 class LLMLogger:
-
     def __init__(self, llm: Union[OpenAIModel, OllamaModel, ClaudeModel, GeminiModel]):
         self.llm = llm
         logger.debug(f"LLMLogger successfully initialized with LLM: {llm}")
@@ -241,7 +240,6 @@ class LLMLogger:
 
 
 class LoggerChatModel:
-
     def __init__(self, llm: Union[OpenAIModel, OllamaModel, ClaudeModel, GeminiModel]):
         self.llm = llm
         logger.debug(f"LoggerChatModel successfully initialized with LLM: {llm}")
@@ -355,14 +353,14 @@ class LoggerChatModel:
 
 
 class GPTAnswerer:
-
     def __init__(self, config, llm_api_key):
+        self.job = None
         self.ai_adapter = AIAdapter(config, llm_api_key)
         self.llm_cheap = LoggerChatModel(self.ai_adapter)
 
     @property
     def job_description(self):
-        return self.job.description
+        return self.job["description"]
 
     @staticmethod
     def find_best_match(text: str, options: list[str]) -> str:
@@ -392,12 +390,11 @@ class GPTAnswerer:
     def set_job(self, job):
         logger.debug(f"Setting job: {job}")
         self.job = job
-        self.job.set_summarize_job_description(
-            self.summarize_job_description(self.job.description))
+        self.job["summarize_job_description"] = self.summarize_job_description(self.job["description"])
 
-    def set_job_application_profile(self, job_application_profile):
-        logger.debug(f"Setting job application profile: {job_application_profile}")
-        self.job_application_profile = job_application_profile
+    def set_resume_profile(self, resume_profile: dict):
+        logger.debug(f"Setting job application profile: {resume_profile}")
+        self.resume_profile = resume_profile
 
     def summarize_job_description(self, text: str) -> str:
         logger.debug(f"Summarizing job description: {text}")
@@ -420,7 +417,6 @@ class GPTAnswerer:
         logger.debug(f"Answering textual question: {question}")
         chains = {
             "personal_information": self._create_chain(strings.personal_information_template),
-            "self_identification": self._create_chain(strings.self_identification_template),
             "legal_authorization": self._create_chain(strings.legal_authorization_template),
             "work_preferences": self._create_chain(strings.work_preferences_template),
             "education_details": self._create_chain(strings.education_details_template),
@@ -438,7 +434,6 @@ class GPTAnswerer:
         For the following question: '{question}', determine which section of the resume is most relevant. 
         Respond with exactly one of the following options:
         - Personal information
-        - Self Identification
         - Legal Authorization
         - Work Preferences
         - Education Details
@@ -458,62 +453,57 @@ class GPTAnswerer:
         - **Use When**: The question is about how to contact you or requests links to your professional online presence.
         - **Examples**: Email address, phone number, AIHawk profile, GitHub repository, personal website.
 
-        2. **Self Identification**:
-        - **Purpose**: Covers personal identifiers and demographic information.
-        - **Use When**: The question pertains to your gender, pronouns, veteran status, disability status, or ethnicity.
-        - **Examples**: Gender, pronouns, veteran status, disability status, ethnicity.
-
-        3. **Legal Authorization**:
+        2. **Legal Authorization**:
         - **Purpose**: Details your work authorization status and visa requirements.
         - **Use When**: The question asks about your ability to work in specific countries or if you need sponsorship or visas.
         - **Examples**: Work authorization in EU and US, visa requirements, legally allowed to work.
 
-        4. **Work Preferences**:
+        3. **Work Preferences**:
         - **Purpose**: Specifies your preferences regarding work conditions and job roles.
-        - **Use When**: The question is about your preferences for remote work, in-person work, relocation, and willingness to undergo assessments or background checks.
-        - **Examples**: Remote work, in-person work, open to relocation, willingness to complete assessments.
+        - **Use When**: The question is about your preferences for remote work, relocation, and willingness to undergo assessments or background checks.
+        - **Examples**: Remote work, in-person work, open to relocation.
 
-        5. **Education Details**:
-        - **Purpose**: Contains information about your academic qualifications.
-        - **Use When**: The question concerns your degrees, universities attended, GPA, and relevant coursework.
-        - **Examples**: Degree, university, GPA, field of study, exams.
+        4. **Education Details**:
+        - **Purpose**: Contains information about your academic qualifications and courses.
+        - **Use When**: The question concerns your degrees, universities attended, and relevant coursework.
+        - **Examples**: Degree, university, field of study.
 
-        6. **Experience Details**:
+        5. **Experience Details**:
         - **Purpose**: Details your professional work history and key responsibilities.
-        - **Use When**: The question pertains to your job roles, responsibilities, and achievements in previous positions.
+        - **Use When**: The question pertains to your job roles, responsibilities, achievements and technoligies that you used in previous positions.
         - **Examples**: Job positions, company names, key responsibilities, skills acquired.
 
-        7. **Projects**:
+        6. **Projects**:
         - **Purpose**: Highlights specific projects you have worked on.
         - **Use When**: The question asks about particular projects, their descriptions, or links to project repositories.
         - **Examples**: Project names, descriptions, links to project repositories.
 
-        8. **Availability**:
+        7. **Availability**:
         - **Purpose**: Provides information on your availability for new roles.
         - **Use When**: The question is about how soon you can start a new job or your notice period.
         - **Examples**: Notice period, availability to start.
 
-        9. **Salary Expectations**:
+        8. **Salary Expectations**:
         - **Purpose**: Covers your expected salary range.
         - **Use When**: The question pertains to your salary expectations or compensation requirements.
         - **Examples**: Desired salary range.
 
-        10. **Certifications**:
+        9. **Certifications**:
             - **Purpose**: Lists your professional certifications or licenses.
             - **Use When**: The question involves your certifications or qualifications from recognized organizations.
             - **Examples**: Certification names, issuing bodies, dates of validity.
 
-        11. **Languages**:
+        10. **Languages**:
             - **Purpose**: Describes the languages you can speak and your proficiency levels.
             - **Use When**: The question asks about your language skills or proficiency in specific languages.
             - **Examples**: Languages spoken, proficiency levels.
 
-        12. **Interests**:
+        11. **Interests**:
             - **Purpose**: Details your personal or professional interests.
             - **Use When**: The question is about your hobbies, interests, or activities outside of work.
             - **Examples**: Personal hobbies, professional interests.
 
-        13. **Cover Letter**:
+        12. **Cover Letter**:
             - **Purpose**: Contains your personalized cover letter or statement.
             - **Use When**: The question involves your cover letter or specific written content intended for the job application.
             - **Examples**: Cover letter content, personalized statements.
@@ -525,7 +515,7 @@ class GPTAnswerer:
         output = chain.invoke({"question": question})
 
         match = re.search(
-            r"(Personal information|Self Identification|Legal Authorization|Work Preferences|Education "
+            r"(Personal information|Legal Authorization|Work Preferences|Education "
             r"Details|Experience Details|Projects|Availability|Salary "
             r"Expectations|Certifications|Languages|Interests|Cover letter)",
             output, re.IGNORECASE)
@@ -541,12 +531,11 @@ class GPTAnswerer:
                 {"resume": self.resume, "job_description": self.job_description})
             logger.debug(f"Cover letter generated: {output}")
             return output
-        resume_section = getattr(self.resume, section_name, None) or getattr(self.job_application_profile, section_name,
-                                                                             None)
+        resume_section = getattr(self.resume, section_name, None) or self.resume_profile.get(section_name)
         if resume_section is None:
             logger.error(
-                f"Section '{section_name}' not found in either resume or job_application_profile.")
-            raise ValueError(f"Section '{section_name}' not found in either resume or job_application_profile.")
+                f"Section '{section_name}' not found in either resume or resume_profile.")
+            raise ValueError(f"Section '{section_name}' not found in either resume or resume_profile.")
         chain = chains.get(section_name)
         if chain is None:
             logger.error(f"Chain not defined for section '{section_name}'")

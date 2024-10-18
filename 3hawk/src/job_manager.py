@@ -1,16 +1,14 @@
 from typing import List, Dict, Tuple
 
+import re
 import json
-import os
 import random
 import time
-from itertools import product
-from pathlib import Path
+import traceback
 
 from inputimeout import inputimeout, TimeoutOccurred
 from selenium import webdriver
 from selenium.common.exceptions import NoSuchElementException
-from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
@@ -28,8 +26,9 @@ class JobManager:
         logger.debug("Инициализация JobManager")
         self.driver = driver
         self.wait = WebDriverWait(driver, 15, poll_frequency=1)
-        # self.set_old_answers = set()
-        # self.easy_applier_component = None
+        self.seen_jobs = []
+        self.page_num = 1
+        self.seen_answers = self._load_questions_from_json()
         logger.debug("JobManager успешно инициализирован")
 
     def set_parameters(self, parameters: dict):
@@ -55,8 +54,6 @@ class JobManager:
         self.work_schedule = parameters.get('work_schedule', {})
         self.side_job = parameters.get('side_job', {})
         self.other_params = parameters.get('other_params', {})
-        self.seen_jobs = []
-        self.page_num = 1
         logger.debug("Параметры успешно установлены")
     
     def set_advanced_search_params(self) -> None:
@@ -84,7 +81,7 @@ class JobManager:
             _ = inputimeout(
                 prompt="""Пожалуйста,проверьте настройки, убедитесь, что все верно или исправьте неверные по вашему мнению настройки. 
                 По завершению нажмите Enter. У вас есть 2 минуты.""",
-                timeout=12000)
+                timeout=120)
         except TimeoutOccurred:
             pass
         self._start_search()
@@ -122,18 +119,18 @@ class JobManager:
             window_handles = self.driver.window_handles
             self.driver.switch_to.window(window_handles[-1])
             # собрать описание вакансии
-            description = self._scrape_employer_page()
-            title = description["title"]
-            experience = description["experience"]
-            company_name = description["company_name"]
-            company_address = description["company_address"]
+            job = self._scrape_employer_page()
+            title = job["title"]
+            experience = job["experience"]
+            company_name = job["company_name"]
+            company_address = job["company_address"]
             # если вакансия еще не встречалась - записать ее в список уже просмотренных вакансий
-            job = f"{company_name}_{company_address}_{title}_{experience}"
-            logger.debug(f"Найдена вакансия {job}")
-            if job not in self.seen_jobs:
+            job_name = f"{company_name}_{company_address}_{title}_{experience}"
+            logger.debug(f"Найдена вакансия {job_name}")
+            if job_name not in self.seen_jobs:
                 logger.debug(f"Вакансия еще не встречалась")
-                self.seen_jobs.append(job)
-                self.apply_jobs() # TODO: get description and CV and send them to LLM
+                self.seen_jobs.append(job_name)
+                self.apply_job(job) # TODO: get description and CV and send them to LLM
             else:
                 logger.debug(f"Вакансия уже встречалась, пропускаем")
             # вернуться обратно на страницу поиска
@@ -151,12 +148,12 @@ class JobManager:
         Собрать всю информацию о работодателе со страницы
         для дальнейшей передачи в LLM
         """
-        employer_description = {}
+        job = {}
 
         description_keys = [
             "title", "salary", "experience", "job_type", "company_name", 
-            "company_address", "company_address", "vacancy_description",
-            "vacancy_description", "skills"
+            "company_address", "company_address", "description",
+            "description", "skills"
             ]
         data_qas = [
             "vacancy-title", "vacancy-salary-compensation-type-net", "vacancy-experience",
@@ -169,16 +166,16 @@ class JobManager:
             if key == "skills":
                 skill_list = self.driver.find_elements("xpath", f"//*[@data-qa='{data_qa}']")
                 skill_list = [skill.text for skill in skill_list]
-                employer_description["skills"] = ', '.join(skill_list)
+                job["skills"] = ', '.join(skill_list)
                 continue
-            if key in ["company_address", "vacancy_description"] and employer_description.get(key) is not None:
+            if key in ["company_address", "description"] and job.get(key) is not None:
                 continue
             try:
-                employer_description[key] = self.driver.find_element("xpath", f"//*[@data-qa='{data_qa}']").text
+                job[key] = self.driver.find_element("xpath", f"//*[@data-qa='{data_qa}']").text
             except NoSuchElementException:
-                employer_description[key] = None
+                job[key] = None
         
-        return employer_description
+        return job
     
     def _sleep(self, sleep_interval: Tuple[int, int]) -> None:
         low, high = sleep_interval
@@ -195,17 +192,81 @@ class JobManager:
             logger.debug(f"Ожидание продлилось {sleep_time} секунд.")
             time.sleep(sleep_time)
 
+    def _load_questions_from_json(self) -> List[dict]:
+        """Загрузить файл с уже готовыми ответами на вопросы"""
+        output_file = 'answers.json'
+        logger.debug(f"Loading questions from JSON file: {output_file}")
+        try:
+            with open(output_file, 'r') as f:
+                try:
+                    data = json.load(f)
+                    if not isinstance(data, list):
+                        raise ValueError("JSON file format is incorrect. Expected a list of questions.")
+                except json.JSONDecodeError:
+                    logger.error("JSON decoding failed")
+                    data = []
+            logger.debug("Questions loaded successfully from JSON")
+            return data
+        except FileNotFoundError:
+            logger.warning("JSON file not found, returning empty list")
+            return []
+        except Exception:
+            tb_str = traceback.format_exc()
+            logger.error(f"Error loading questions data from JSON file: {tb_str}")
+            raise Exception(f"Error loading questions data from JSON file: \nTraceback:\n{tb_str}")
+        
+    def _find_and_handle_questions(self):
+        questions = self.driver.find_elements("xpath", f"//*[@data-qa='task-body']")
+        if questions:
+            logger.debug("Searching for text fields in the section.")
+            for question in questions:
+                self._find_and_handle_textbox_question(question)
+
+    
+    def _find_and_handle_textbox_question(self, question) -> bool:
+        text_question_fields = question.find_elements("tag name", 'textarea')
+        if text_question_fields:
+            question_text = question.text.lower().strip()
+            logger.debug(f"Нашли текстовый вопрос: {question_text}")
+            text_field = text_question_fields[0]
+
+            # Look for existing answer if it's not a cover letter field
+            existing_answer = None
+            for answer in self.seen_answers:
+                if self._sanitize_text(answer['question']) == self._sanitize_text(question_text) and answer.get('type') == question_type:
+                    existing_answer = answer['answer']
+                    logger.debug(f"Found existing answer: {existing_answer}")
+                    break
+
+            if existing_answer:
+                answer = existing_answer
+                logger.debug(f"Using existing answer: {answer}")
+            else:
+                answer = self.gpt_answerer.answer_question_textual_wide_range(question_text)
+                logger.debug(f"Generated textual answer: {answer}")
+
+            self._enter_text(text_field, answer)
+            logger.debug("Entered answer into the textbox.")
+
+            # Save non-cover letter answers
+            self._save_questions_to_json({'question': question_text, 'answer': answer})
+            logger.debug("Saved test question answer to JSON.")
+
+            time.sleep(1)
+            text_field.send_keys(answer)
+            return True
+
+        logger.debug("No text fields found in the section.")
+        return False
+    
     def set_gpt_answerer(self, gpt_answerer):
         pass
 
     def set_resume_generator_manager(self, resume_generator_manager):
         pass
 
-    def get_jobs_from_page(self):
-        pass
-
-    def apply_jobs(self):
-        pass
+    def apply_job(self, job: dict):
+        self.gpt_answerer.set_job(job)
 
     def write_to_file(self, job, file_name):
         pass
@@ -511,3 +572,10 @@ class JobManager:
         """Начать поиск"""
         search_button = self.driver.find_element("css selector", '[data-qa="advanced-search-submit-button"]')
         search_button.click()
+
+    def _sanitize_text(self, text: str) -> str:
+        """Очистить текст вопроса/ответа"""
+        sanitized_text = text.lower().strip().replace('"', '').replace('\\', '')
+        sanitized_text = re.sub(r'[\x00-\x1F\x7F]', '', sanitized_text).replace('\n', ' ').replace('\r', '').rstrip(',')
+        logger.debug(f"Sanitized text: {sanitized_text}")
+        return sanitized_text

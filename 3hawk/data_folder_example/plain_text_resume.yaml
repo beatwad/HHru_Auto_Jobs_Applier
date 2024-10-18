@@ -18,17 +18,17 @@ legal_authorization:
 work_preferences:
   position: Python разработчик
   specialization: Программист, разработчик
-  job_type: Полная занятость
-  work_schedule: Полный день, Удаленная работа
-  travel_time_to_work: Не более часа
-  ready_to_business_trips: Иногда
-  relocation: Могу переехать
+  job_type: "[Полная занятость, Частичная занятость, Проектная работа, Волонтерство, Стажировка]"
+  work_schedule: "[Полный день, Сменный график, Гибкий график, Удаленная работа, Вахтовый метод]"
+  travel_time_to_work: "[Не имеет значения/Не более часа/Не более полутора часов]"
+  ready_to_business_trips: "[Готов/Иногда/Никогда]"
+  relocation: "[Не могу переехать/Могу переехать/Хочу переехать]"
   willing_to_complete_assessments: Да
   willing_to_undergo_drug_tests: Да
   willing_to_undergo_background_checks: Да
 
 education_details:
-  - education_level: Высшее
+  - education_level: "[Среднее/Среднее специальное/Неоконченное высшее/Высшее/Бакалавр/Магистр/Кандидат наук/Доктор наук/Курсы]"
     institution: Московский Государственный Институт
     faculty: ВМК (Высшая Математика и Кибернетика)
     company: 
