@@ -1,5 +1,5 @@
 login:  # Логин: email или телефон (обязательное поле)
-  beatwad@gmail.com
+  alexneth93@gmail.com
 
 number_of_resume_to_select: 1 # Какое по счету резюме из имеющихся выбрать
 

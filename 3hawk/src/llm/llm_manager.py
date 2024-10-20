@@ -357,6 +357,20 @@ class GPTAnswerer:
         self.job = None
         self.ai_adapter = AIAdapter(config, llm_api_key)
         self.llm_cheap = LoggerChatModel(self.ai_adapter)
+        self.chains = {
+            "personal_information": self._create_chain(strings.personal_information_template),
+            "legal_authorization": self._create_chain(strings.legal_authorization_template),
+            "work_preferences": self._create_chain(strings.work_preferences_template),
+            "education_details": self._create_chain(strings.education_details_template),
+            "experience_details": self._create_chain(strings.experience_details_template),
+            "projects": self._create_chain(strings.projects_template),
+            "availability": self._create_chain(strings.availability_template),
+            "salary_expectations": self._create_chain(strings.salary_expectations_template),
+            "certifications": self._create_chain(strings.certifications_template),
+            "languages": self._create_chain(strings.languages_template),
+            "interests": self._create_chain(strings.interests_template),
+            "cover_letter": self._create_chain(strings.coverletter_template),
+        }
 
     @property
     def job_description(self):
@@ -415,20 +429,6 @@ class GPTAnswerer:
 
     def answer_question_textual_wide_range(self, question: str) -> str:
         logger.debug(f"Answering textual question: {question}")
-        chains = {
-            "personal_information": self._create_chain(strings.personal_information_template),
-            "legal_authorization": self._create_chain(strings.legal_authorization_template),
-            "work_preferences": self._create_chain(strings.work_preferences_template),
-            "education_details": self._create_chain(strings.education_details_template),
-            "experience_details": self._create_chain(strings.experience_details_template),
-            "projects": self._create_chain(strings.projects_template),
-            "availability": self._create_chain(strings.availability_template),
-            "salary_expectations": self._create_chain(strings.salary_expectations_template),
-            "certifications": self._create_chain(strings.certifications_template),
-            "languages": self._create_chain(strings.languages_template),
-            "interests": self._create_chain(strings.interests_template),
-            "cover_letter": self._create_chain(strings.coverletter_template),
-        }
         section_prompt = """You are assisting a bot designed to automatically apply for jobs on AIHawk. The bot receives various questions about job applications and needs to determine the most relevant section of the resume to provide an accurate response.
 
         For the following question: '{question}', determine which section of the resume is most relevant. 
@@ -444,7 +444,6 @@ class GPTAnswerer:
         - Certifications
         - Languages
         - Interests
-        - Cover letter
 
         Here are detailed guidelines to help you choose the correct section:
 
@@ -503,11 +502,6 @@ class GPTAnswerer:
             - **Use When**: The question is about your hobbies, interests, or activities outside of work.
             - **Examples**: Personal hobbies, professional interests.
 
-        12. **Cover Letter**:
-            - **Purpose**: Contains your personalized cover letter or statement.
-            - **Use When**: The question involves your cover letter or specific written content intended for the job application.
-            - **Examples**: Cover letter content, personalized statements.
-
         Provide only the exact name of the section from the list above with no additional text.
         """
         prompt = ChatPromptTemplate.from_template(section_prompt)
@@ -524,19 +518,12 @@ class GPTAnswerer:
                 "Could not extract section name from the response.")
 
         section_name = match.group(1).lower().replace(" ", "_")
-
-        if section_name == "cover_letter":
-            chain = chains.get(section_name)
-            output = chain.invoke(
-                {"resume": self.resume, "job_description": self.job_description})
-            logger.debug(f"Cover letter generated: {output}")
-            return output
         resume_section = getattr(self.resume, section_name, None) or self.resume_profile.get(section_name)
         if resume_section is None:
             logger.error(
                 f"Section '{section_name}' not found in either resume or resume_profile.")
             raise ValueError(f"Section '{section_name}' not found in either resume or resume_profile.")
-        chain = chains.get(section_name)
+        chain = self.chains.get(section_name)
         if chain is None:
             logger.error(f"Chain not defined for section '{section_name}'")
             raise ValueError(f"Chain not defined for section '{section_name}'")
@@ -544,67 +531,11 @@ class GPTAnswerer:
             {"resume_section": resume_section, "question": question})
         logger.debug(f"Question answered: {output}")
         return output
-
-    def answer_question_numeric(self, question: str, default_experience: int = 3) -> int:
-        logger.debug(f"Answering numeric question: {question}")
-        func_template = self._preprocess_template_string(
-            strings.numeric_question_template)
-        prompt = ChatPromptTemplate.from_template(func_template)
-        chain = prompt | self.llm_cheap | StrOutputParser()
-        output_str = chain.invoke(
-            {"resume_educations": self.resume.education_details, "resume_jobs": self.resume.experience_details,
-             "resume_projects": self.resume.projects, "question": question})
-        logger.debug(f"Raw output for numeric question: {output_str}")
-        try:
-            output = self.extract_number_from_string(output_str)
-            logger.debug(f"Extracted number: {output}")
-        except ValueError:
-            logger.warning(
-                f"Failed to extract number, using default experience: {default_experience}")
-            output = default_experience
+    
+    def write_cover_letter(self) -> str:
+        """Написать сопроводительное письмо"""
+        chain = self.chains.get("cover_letter")
+        output = chain.invoke(
+            {"resume": self.resume, "job_description": self.job_description})
+        logger.debug(f"Cover letter generated: {output}")
         return output
-
-    def extract_number_from_string(self, output_str):
-        logger.debug(f"Extracting number from string: {output_str}")
-        numbers = re.findall(r"\d+", output_str)
-        if numbers:
-            logger.debug(f"Numbers found: {numbers}")
-            return int(numbers[0])
-        else:
-            logger.error("No numbers found in the string")
-            raise ValueError("No numbers found in the string")
-
-    def answer_question_from_options(self, question: str, options: list[str]) -> str:
-        logger.debug(f"Answering question from options: {question}")
-        func_template = self._preprocess_template_string(
-            strings.options_template)
-        prompt = ChatPromptTemplate.from_template(func_template)
-        chain = prompt | self.llm_cheap | StrOutputParser()
-        output_str = chain.invoke(
-            {"resume": self.resume, "question": question, "options": options})
-        logger.debug(f"Raw output for options question: {output_str}")
-        best_option = self.find_best_match(output_str, options)
-        logger.debug(f"Best option determined: {best_option}")
-        return best_option
-
-    def resume_or_cover(self, phrase: str) -> str:
-        logger.debug(
-            f"Determining if phrase refers to resume or cover letter: {phrase}")
-        prompt_template = """
-                Given the following phrase, respond with only 'resume' if the phrase is about a resume, or 'cover' if it's about a cover letter.
-                If the phrase contains only one word 'upload', consider it as 'cover'.
-                If the phrase contains 'upload resume', consider it as 'resume'.
-                Do not provide any additional information or explanations.
-
-                phrase: {phrase}
-                """
-        prompt = ChatPromptTemplate.from_template(prompt_template)
-        chain = prompt | self.llm_cheap | StrOutputParser()
-        response = chain.invoke({"phrase": phrase})
-        logger.debug(f"Response for resume_or_cover: {response}")
-        if "resume" in response:
-            return "resume"
-        elif "cover" in response:
-            return "cover"
-        else:
-            return "resume"

@@ -1,14 +1,14 @@
 personal_information:
-  name: Иван
-  surname: Иванов
+  name: Алексей
+  surname: Семенов
   date_of_birth: 15.07.1995
   country: Россия
   city: Москва
-  phone: 89998765432
-  email: ivanivanov@gmail.com
-  github: https://www.github.com/ivan-ivanov/
-  linkedin: https://www.linkedin.com/in/ivan-ivanov-f3e57c712/
-  personal_site: https://ivan-ivanov.ru
+  phone: 89335684864
+  email: alexneth93@gmail.com
+  github: 
+  linkedin: 
+  personal_site: 
 
 legal_authorization:
   countries:

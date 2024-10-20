@@ -15,7 +15,6 @@ from src.llm.llm_manager import GPTAnswerer
 from src.authenticator import Authenticator
 from src.bot_facade import BotFacade
 from src.job_manager import JobManager
-from src.job_application_profile import JobApplicationProfile
 from loguru import logger
 
 log_file = "log/app_log.log"
