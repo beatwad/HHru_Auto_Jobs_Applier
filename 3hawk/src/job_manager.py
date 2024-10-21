@@ -7,7 +7,6 @@ import time
 import traceback
 
 from inputimeout import inputimeout, TimeoutOccurred
-from selenium import webdriver
 from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support import expected_conditions as EC
@@ -27,7 +26,8 @@ class JobManager:
         self.driver = driver
         self.gpt_answerer = None
         self.wait = WebDriverWait(driver, 15, poll_frequency=1)
-        self.seen_jobs = []
+        self.seen_companies = set()
+        self.seen_jobs = set()
         self.page_num = 1
         self.seen_answers = self._load_questions_from_json()
         logger.debug("JobManager успешно инициализирован")
@@ -93,7 +93,7 @@ class JobManager:
         Задать LLM для ответов на вопросы и написания
         сопроводительных писем
         """
-        self.set_gpt_answerer = gpt_answerer
+        self.gpt_answerer = gpt_answerer
     
     def start_applying(self) -> None:
         """Разослать отклики всем работодателям на всех страницах"""
@@ -108,23 +108,33 @@ class JobManager:
                     except NoSuchElementException:
                         break
                 self._send_repsonses()
+                break  # !!!
                 self.page_num += 1
                 # делать случайную паузу на каждой странице
-                self._sleep(20, 40)
+                self._sleep((20, 40))
                 logger.debug(f"Переходим на страницу {self.page_num}")
-            except Exception as e:
-                logger.error(f"Неизвестная ошибка: {e}")
+            except Exception:
+                tb_str = traceback.format_exc()
+                logger.error(f"Неизвестная ошибка: {tb_str}")
+                break  # !!!
                 continue
     
     def apply_job(self, job: dict):
         """Откликнусться на вакансию"""
         self.gpt_answerer.set_job(job)
-        self.driver.find_element("xpath", f"//*[@data-qa='vacancy-response-link-top']").click()
-        self._find_and_handle_questions()
+        # self.driver.find_element("xpath", f"//*[@data-qa='vacancy-response-link-top']").click()
+        # self._find_and_handle_questions()
         self._write_and_send_cover_letter()
 
-    
-    def _send_repsonses(self, page_sleep: int) -> None:
+    def write_to_file(self, job, file_name):
+        # TODO: добавить запись результатов откликов в файл
+        pass
+
+    def is_blacklisted(self, job_title, company, link):
+        # TODO: добавить черный список компаний
+        pass
+
+    def _send_repsonses(self) -> None:
         """Разослать отклики всем работодателям на странице"""
         minimum_time = MINIMUM_WAIT_TIME_SEC
         minimum_page_time = time.time() + minimum_time
@@ -144,22 +154,19 @@ class JobManager:
             # если вакансия еще не встречалась - записать ее в список уже просмотренных вакансий
             job_name = f"{company_name}_{company_address}_{title}_{experience}"
             logger.debug(f"Найдена вакансия {job_name}")
-            if job_name not in self.seen_jobs:
-                logger.debug("Вакансия еще не встречалась")
-                self.seen_jobs.append(job_name)
-                self.apply_job(job) # TODO: get description and CV and send them to LLM
-            else:
-                logger.debug("Вакансия уже встречалась, пропускаем")
+            self._is_already_applied_to_company(company_name)
+            if not self._is_already_applied_to_job(job_name):
+                self.apply_job(job)
             # вернуться обратно на страницу поиска
             self.driver.close()
             self.driver.switch_to.window(window_handles[0])
+            break  # !!!
         # если страница была обработана быстрее, чем за минимальное время - 
         # подождать, пока это время не закончится       
-        time_left = minimum_page_time - time.time()
+        time_left = int(minimum_page_time - time.time())
         if time_left > 0:
-            self._sleep(time_left, time_left + 5)
+            self._sleep((time_left, time_left + 5))
                 
-
     def _scrape_employer_page(self) -> Dict[str, str]:
         """
         Собрать всю информацию о работодателе со страницы
@@ -199,15 +206,14 @@ class JobManager:
         sleep_time = random.randint(low, high)
         try:
             user_input = inputimeout(
-                prompt=f"Делаем паузу на {sleep_time / 60} минут(ы). Нажмите Enter, чтобы прекратить ожидание.",
-                timeout=60).strip().lower()
+                prompt=f"Делаем паузу на {round(sleep_time / 60, 2)} минут(ы). Нажмите Enter, чтобы прекратить ожидание.",
+                timeout=sleep_time).strip().lower()
         except TimeoutOccurred:
             user_input = ''  # No input after timeout
-        if user_input == 'y':
+        if user_input != '':
             logger.debug("Прекращаем ожидание.")
         else:
             logger.debug(f"Ожидание продлилось {sleep_time} секунд.")
-            time.sleep(sleep_time)
 
     def _load_questions_from_json(self) -> List[dict]:
         """Загрузить файл с уже готовыми ответами на вопросы"""
@@ -232,46 +238,48 @@ class JobManager:
             logger.error(f"Error loading questions data from JSON file: {tb_str}")
             raise Exception(f"Error loading questions data from JSON file: \nTraceback:\n{tb_str}")
         
-    def _find_and_handle_questions(self):
+    def _find_and_handle_questions(self) -> None:
+        """Если на странице есть вопросы - использовать LLM для ответа на них"""
         questions = self.driver.find_elements("xpath", "//*[@data-qa='task-body']")
         if questions:
             logger.debug("Searching for text fields in the section.")
             for question in questions:
                 self._find_and_handle_textbox_question(question)
 
-    def _write_and_send_cover_letter(self):
-        cover_letter_text = self.gpt_answerer.write_cover_letter()
-        cover_letter_element = self.driver.find_elements("xpath", "//*[@data-qa='vacancy-response-letter-toggle']")
-        # если удалось найти форму для ввода сопроводительного письма - отправить его туда 
-        if cover_letter_element:
-            cover_letter_element[0].click()
-            cover_letter_field = self.driver.find_element("xpath", "//*[@data-qa='vacancy-response-popup-form-letter-input']")
-            cover_letter_field.send_keys(cover_letter_text)
-        else:
-            # если удалось найти форму для кнопку сопроводительного письма - нажать и отправить его 
-            cover_letter_buttons = self.driver.find_elements("xpath", f"//*[@data-qa='vacancy-response-letter-toggle']")
-            if cover_letter_buttons:
-                cover_letter_button = cover_letter_buttons[0]
-                self.driver.execute_script("arguments[0].scrollIntoView();", cover_letter_button)
-                cover_letter_button.click()
-                cover_letter_field = self.driver.find_element("xpath", f"//*[@data-qa='vacancy-response-letter-informer']")
-                cover_letter_text_field = cover_letter_field.find_element("tag name", 'textarea')
-                cover_letter_text_field.send_keys(cover_letter_text)
-            else:
-                # иначе зайти в чат с работодателем и отправить сопроводительное из него
-                chat_button = self.driver.find_element("xpath", f"//*[@data-qa='vacancy-response-link-view-topic']")
-                self.driver.execute_script("arguments[0].scrollIntoView();", chat_button)
-                chat_button.click()
-                iframes = self.driver.find_elements("tag name", "iframe")
-                for frame in iframes:
-                    if frame.get_attribute('class') == "chatik-integration-iframe chatik-integration-iframe_loaded":
-                        self.driver.switch_to.frame(frame)
-                        self.driver.find_element("xpath", f"//*[@data-qa='chatik-chat-message-applicant-action-text']").click()
-                        text_element = self.driver.find_element("xpath", f"//*[@data-qa='chatik-new-message-text']")
-                        text_element.send_keys("test")
-                        text_element.send_keys(Keys.ENTER)
-                        break
-                self.driver.switch_to.default_content()
+    def _write_and_send_cover_letter(self) -> None:
+        """Написать и отправить работодателю сопроводительное письмо"""
+        cover_letter_text = "Cover letter" # self.gpt_answerer.write_cover_letter()
+        # cover_letter_element = self.driver.find_elements("xpath", "//*[@data-qa='vacancy-response-letter-toggle']")
+        # # если удалось найти форму для ввода сопроводительного письма - отправить его туда 
+        # if cover_letter_element:
+        #     cover_letter_element[0].click()
+        #     cover_letter_field = self.driver.find_element("xpath", "//*[@data-qa='vacancy-response-popup-form-letter-input']")
+        #     cover_letter_field.send_keys(cover_letter_text)
+        # else:
+        #     # если удалось найти форму для кнопку сопроводительного письма - нажать и отправить его 
+        #     cover_letter_buttons = self.driver.find_elements("xpath", f"//*[@data-qa='vacancy-response-letter-toggle']")
+        #     if cover_letter_buttons:
+        #         cover_letter_button = cover_letter_buttons[0]
+        #         self.driver.execute_script("arguments[0].scrollIntoView();", cover_letter_button)
+        #         cover_letter_button.click()
+        #         cover_letter_field = self.driver.find_element("xpath", f"//*[@data-qa='vacancy-response-letter-informer']")
+        #         cover_letter_text_field = cover_letter_field.find_element("tag name", 'textarea')
+        #         cover_letter_text_field.send_keys(cover_letter_text)
+        #     else:
+        #         # иначе зайти в чат с работодателем и отправить сопроводительное из него
+        #         chat_button = self.driver.find_element("xpath", f"//*[@data-qa='vacancy-response-link-view-topic']")
+        #         self.driver.execute_script("arguments[0].scrollIntoView();", chat_button)
+        #         chat_button.click()
+        #         iframes = self.driver.find_elements("tag name", "iframe")
+        #         for frame in iframes:
+        #             if frame.get_attribute('class') == "chatik-integration-iframe chatik-integration-iframe_loaded":
+        #                 self.driver.switch_to.frame(frame)
+        #                 self.driver.find_element("xpath", f"//*[@data-qa='chatik-chat-message-applicant-action-text']").click()
+        #                 text_element = self.driver.find_element("xpath", f"//*[@data-qa='chatik-new-message-text']")
+        #                 text_element.send_keys("test")
+        #                 text_element.send_keys(Keys.ENTER)
+        #                 break
+        #         self.driver.switch_to.default_content()
                 
     def _find_and_handle_textbox_question(self, question) -> bool:
         text_question_fields = question.find_elements("tag name", 'textarea')
@@ -308,25 +316,24 @@ class JobManager:
 
         logger.debug("No text fields found in the section.")
         return False
+    
+    def _is_already_applied_to_job(self, job) -> bool:
+        """Проверить, откликались ли мы уже на эту вакансию"""
+        if job in self.seen_jobs:
+            logger.debug("Вакансия уже встречалась, пропускаем")
+            return True
+        logger.debug("Вакансия еще не встречалась")
+        self.seen_jobs.add(job)
+        return False
 
-    def set_resume_generator_manager(self, resume_generator_manager):
-        pass
-
-    def write_to_file(self, job, file_name):
-        # TODO: добавить запись результатов откликов в файл
-        pass
-
-    def is_blacklisted(self, job_title, company, link):
-        # TODO: добавить черный список компаний
-        pass
-
-    def is_already_applied_to_job(self, job_title, company, link):
-        # TODO: добавить запись результатов откликов в файл
-        pass
-
-    def is_already_applied_to_company(self, company):
-        # TODO: добавить запись результатов откликов в файл
-        pass
+    def _is_already_applied_to_company(self, company) -> bool:
+        """Проверить, откликались ли мы уже на вакансии этой компании"""
+        if company in self.seen_companies:
+            logger.debug("Компания уже встречалась")
+            return True
+        logger.debug("Компания еще не встречалась")
+        self.seen_companies.add(company)
+        return False
     
     @staticmethod
     def _pause(low: int = 1, high: int = 2) -> None:

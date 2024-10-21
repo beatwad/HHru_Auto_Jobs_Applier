@@ -2,6 +2,7 @@ import os
 import random
 import sys
 import time
+import traceback
 
 from selenium import webdriver
 from loguru import logger
@@ -170,3 +171,7 @@ def printyellow(text):
 def stringWidth(text, font, font_size):
     bbox = font.getbbox(text)
     return bbox[2] - bbox[0]
+
+def get_traceback(exc: Exception) -> str:
+    tb = traceback.extract_tb(exc.__traceback__)[-1]
+    return f"line {tb.lineno} in file {tb.filename}"

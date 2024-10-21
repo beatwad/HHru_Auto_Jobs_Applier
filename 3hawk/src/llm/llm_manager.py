@@ -404,7 +404,7 @@ class GPTAnswerer:
     def set_job(self, job):
         logger.debug(f"Setting job: {job}")
         self.job = job
-        self.job["summarize_job_description"] = self.summarize_job_description(self.job["description"])
+        self.job["summarize_job_description"] = "Job description" # self.summarize_job_description(self.job["description"]) !!!
 
     def set_resume_profile(self, resume_profile: dict):
         logger.debug(f"Setting job application profile: {resume_profile}")

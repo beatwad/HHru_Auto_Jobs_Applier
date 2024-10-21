@@ -86,8 +86,9 @@ class BotFacade:
         logger.debug("Starting apply process")
         # self.state.validate_state(['logged_in', 'resume_profile_set', 'gpt_answerer_set', 'parameters_set'])
         self.state.validate_state(['logged_in', 'parameters_set', 'search_parameters_set'])
-        self.apply_component.start_applying()
         logger.debug("Apply process started successfully")
+        self.apply_component.start_applying()
+        logger.debug("Apply process finished successfully")
 
     def _validate_non_empty(self, value, name):
         logger.debug(f"Validating that {name} is not empty")

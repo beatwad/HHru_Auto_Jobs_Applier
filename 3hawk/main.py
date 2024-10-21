@@ -1,11 +1,9 @@
 import os
 import re
 import sys
-import time
-import traceback
 from pathlib import Path
 import yaml
-import click
+import traceback
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service as ChromeService
 from webdriver_manager.chrome import ChromeDriverManager
@@ -261,10 +259,6 @@ def create_and_run_bot(parameters, llm_api_key):
     except Exception as e:
         raise RuntimeError(f"Error running the bot: {str(e)}")
 
-def get_traceback(exc: Exception) -> str:
-    tb = traceback.extract_tb(exc.__traceback__)[-1]
-    return f"line {tb.lineno} in file {tb.filename}"
-
 # @click.command()
 # @click.option('--resume', type=click.Path(exists=True, file_okay=True, dir_okay=False, path_type=Path), help="Path to the resume PDF file")
 def main():
@@ -286,13 +280,13 @@ def main():
         logger.error(f"File not found: {str(fnf)}")
         logger.error("Ensure all required files are present in the data folder.")
         logger.error("Refer to the file setup guide: https://github.com/feder-cr/AIHawk_AIHawk_automatic_job_application/blob/main/readme.md#configuration")
-    except RuntimeError as re:
-        tb = get_traceback(re)
-        logger.error(f"Runtime error: {str(re)}, {tb}")
+    except RuntimeError:
+        tb_str = traceback.format_exc()
+        logger.error(f"Runtime error: {tb_str}")
         logger.error("Refer to the configuration and troubleshooting guide: https://github.com/feder-cr/AIHawk_AIHawk_automatic_job_application/blob/main/readme.md#configuration")
-    except Exception as e:
-        tb = get_traceback(e)
-        logger.error(f"An unexpected error occurred: {str(e)}, {tb}")
+    except Exception:
+        tb_str = traceback.format_exc()
+        logger.error(f"Неизвестная ошибка: {tb_str}")
         logger.error("Refer to the general troubleshooting guide: https://github.com/feder-cr/AIHawk_AIHawk_automatic_job_application/blob/main/readme.md#configuration")
 
 if __name__ == "__main__":

@@ -1,55 +1,83 @@
-Liam Murphy
-Galway, Ireland
-Email: liam.murphy@gmail.com | AIHawk: liam-murphy
-GitHub: liam-murphy | Phone: +353 871234567
+Алексей Семенов
+Москва, Россия
+Email: alexneth93@gmail.com
+GitHub: alexneth93
+Phone: +7(933)568-48-64
 
-Education
-Bachelor's Degree in Computer Science
-National University of Ireland, Galway (GPA: 4/4)
-Graduation Year: 2020
+Образование:
+Университет МГУ (Московский Государственный Институт)
+Факультет ВМК (Высшая Математика и Кибернетика)
+Год выпуска: 2019
 
-Experience
-Co-Founder & Software Engineer
-CryptoWave Solutions (03/2021 - Present)
-Location: Ireland | Industry: Blockchain Technology
+Курсы:
+Специализация Python разработчик
+Компания Яндекс Практикум
+Год завершения 2021
 
-Co-founded and led a startup specializing in app and software development with a focus on blockchain technology
-Provided blockchain consultations for 10+ companies, enhancing their software capabilities with secure, decentralized solutions
-Developed blockchain applications, integrated cutting-edge technology to meet client needs and drive industry innovation
-Research Intern
-National University of Ireland, Galway (11/2022 - 03/2023)
-Location: Galway, Ireland | Industry: IoT Security Research
+Опыт:
+* Python разработчик в компании ООО «Green-Park» (Август 2022 — настоящее время)
+Занимался разработкой веб-платформы и телеграм-бота для промо-кампании
+Достижения:
+- Организовал структуру проекта
+- Cоздал посадочную страницу на React, обеспечивающую UX/UI-оптимизацию и взаимодействие с пользователем
+- Внедрил асинхронную обработку чеков API Федеральной налоговой службы
+- Интегрировал API Яндекс Карт
+- Ускорил деплой на 10 минут благодаря Git + Docker-compose
+- Настроил веб-сервер при помощи Nginx и Сertbot
+Использовал технологии:
+- Python
+- Django REST Framework
+- React
+- Celery
+- RabbitMQ
+- Redis
+- PostgreSQL
+- Aiogram
+Приобретенные навыки:
+- Веб-разработка
+- UI design
+- Автоматическое тестирование
 
-Conducted in-depth research on IoT security, focusing on binary instrumentation and runtime monitoring
-Performed in-depth study of the MQTT protocol and Falco
-Developed multiple software components including MQTT packet analysis library, Falco adapter, and RML monitor in Prolog
-Authored thesis "Binary Instrumentation for Runtime Monitoring of Internet of Things Systems Using Falco"
-Software Engineer
-University Hospital Galway (05/2022 - 11/2022)
-Location: Galway, Ireland | Industry: Healthcare IT
+* Python разработчик в компании ООО «Green-Park» (Сентябрь 2020 — Июнь 2022)
+Занимался разработкой телеграм-бота на Aiogram для взаимодействия с клиентами и сайта-сборника проектов на Django
+Достижения:
+- Разработал базу данных для хранения и обновления рабочего расписания
+- Внедрил систему мгновенных уведомлений, позволяющую оповещать клиентов об изменениях в заказах в режиме реального времени
+- Интегрировал API Яндекс Карт и Яндекс Погоды
+Использовал технологии:
+- Python
+- Django
+- React
+- Redis
+- PostgreSQL
+- Aiogram
+- REST API
+- JavaScript
+- HTML&CSS
+Приобретенные навыки:
+- Веб-разработка
+- UI design
+- Автоматическое тестирование
 
-Integrated and enforced robust security protocols
-Developed and maintained a critical software tool for password validation used by over 1,600 employees
-Played an integral role in the hospital's cybersecurity team
-Projects
-JobBot
-AI-driven tool to automate and personalize job applications on AIHawk, gained over 3000 stars on GitHub, improving efficiency and reducing application time
-Link: JobBot
+Проекты:
+* JobBot
+Инструмент на базе искусственного интеллекта для автоматизации и персонализации заявлений на вакансии на AIHawk, получивший более 3000 звезд на GitHub, повышающий эффективность и сокращающий время подачи заявлений
+Ссылка: JobBot
 
-mqtt-packet-parser
-Developed a Node.js module for parsing MQTT packets, improved parsing efficiency by 40%
-Link: mqtt-packet-parser
+* mqtt-packet-parser
+Разработал модуль Node.js для анализа пакетов MQTT, эффективность анализа повышена на 40%
+Ссылка: mqtt-packet-parser
 
-Achievements
-Winner of an Irish public competition - Won first place in a public competition with a perfect score of 70/70, securing a Software Developer position at University Hospital Galway
-Galway Merit Scholarship - Awarded annually from 2018 to 2020 in recognition of academic excellence and contribution
-GitHub Recognition - Gained over 3000 stars on GitHub with JobBot project
-Certifications
-C1
+Достижения:
+* Победитель хакатона IT Inno Hack 2023
+* Проект JobBot собрал более 3000 звезд на GitHub
 
-Languages
-English - Native
-Spanish - Professional
-Interests
-Full-Stack Development, Software Architecture, IoT system design and development, Artificial Intelligence, Cloud Technologies
+Языки:
+* Русский - Родной
+* Английский - B2
 
+Интересы:
+Машинное обучение и искусственный интеллект, Кибербезопасность, Open Source Projects, Спорт (бег, тяжелая атлетика, лыжи)
+
+Ожидания по зарплате:
+от 200000 до 400000 руб

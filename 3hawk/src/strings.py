@@ -229,6 +229,10 @@ Analyze the job description to identify key qualifications and requirements. Int
 
 Please write the cover letter in a way that directly addresses the job role and the company’s characteristics, ensuring it remains concise and engaging without unnecessary embellishments. The letter should be formatted into paragraphs and should not include a greeting or signature.
 
+If job description is written in Russian - write the cover letter in Russian too. Else write it in English.
+
+Job description may contanin a questions that most be answered in the cover letter. If you find any questions in job description - answer them in cover letter using information from resume. 
+
 ## Rules:
 - Provide only the text of the cover letter.
 - Do not include any introductions, explanations, or additional information.
