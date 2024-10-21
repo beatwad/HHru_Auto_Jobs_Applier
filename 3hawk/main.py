@@ -14,10 +14,12 @@ from src.bot_facade import BotFacade
 from src.job_manager import JobManager
 from loguru import logger
 
+# TODO: check if string split in cover letter is needed
 # TODO: check the whole pipeline 
 # TODO: enter the search through resume menu
 # TODO: select from multiple resumes according to number_of_resume_to_select
 # TODO: check all search settings
+# TODO: translate all comments and debug statements to Russian
 # TODO: write tests
 # TODO: write README
 

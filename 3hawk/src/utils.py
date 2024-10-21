@@ -63,6 +63,7 @@ def scroll_slow(driver, element, current_position, step=20):
 
 
 def chrome_browser_options():
+    """Задать настройки браузера, в котором будет работать Selenium"""
     logger.debug("Setting Chrome browser options")
     ensure_chrome_profile()
     options = webdriver.ChromeOptions()
@@ -122,7 +123,3 @@ def printyellow(text):
 def stringWidth(text, font, font_size):
     bbox = font.getbbox(text)
     return bbox[2] - bbox[0]
-
-def get_traceback(exc: Exception) -> str:
-    tb = traceback.extract_tb(exc.__traceback__)[-1]
-    return f"line {tb.lineno} in file {tb.filename}"
