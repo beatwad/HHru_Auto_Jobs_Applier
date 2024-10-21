@@ -48,12 +48,12 @@ def scroll_slow(driver, element, current_position, step=20):
 
     # Scroll slowly by small increments
     if current_position < element_position:
-        while current_position < element_position - 10:
+        while current_position < element_position - 20:
             current_position += step
             driver.execute_script(f"window.scrollTo(0, {current_position});")
             time.sleep(0.05)  # Adjust the sleep time for smoother scrolling
     else:
-        while current_position > element_position + 10:
+        while current_position > element_position + 20:
             current_position -= step
             driver.execute_script(f"window.scrollTo(0, {current_position});")
             time.sleep(0.05)  # Adjust the sleep time for smoother scrolling
