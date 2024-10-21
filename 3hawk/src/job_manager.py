@@ -12,11 +12,9 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
-import src.utils as utils
-from app_config import MINIMUM_WAIT_TIME_SEC
-# from src.job import Job
-# from src.aihawk_easy_applier import AIHawkEasyApplier
+from src.app_config import MINIMUM_WAIT_TIME_SEC, APPLY_ONCE_AT_COMPANY
 from loguru import logger
+from src.utils import scroll_slow
 
 
 class JobManager:
@@ -29,6 +27,7 @@ class JobManager:
         self.seen_companies = set()
         self.seen_jobs = set()
         self.page_num = 1
+        self.current_position = 0
         self.seen_answers = self._load_questions_from_json()
         logger.debug("JobManager успешно инициализирован")
 
@@ -60,6 +59,7 @@ class JobManager:
     def set_advanced_search_params(self) -> None:
         """Задать дополнительные параметры поиска в hh.ru"""
         self.driver.get("https://hh.ru/search/vacancy/advanced")
+
         self._set_key_words()
         self._set_search_only()
         self._set_words_to_exclude()
@@ -154,8 +154,7 @@ class JobManager:
             # если вакансия еще не встречалась - записать ее в список уже просмотренных вакансий
             job_name = f"{company_name}_{company_address}_{title}_{experience}"
             logger.debug(f"Найдена вакансия {job_name}")
-            self._is_already_applied_to_company(company_name)
-            if not self._is_already_applied_to_job(job_name):
+            if not self._is_already_applied_to_job(job_name) and not self._is_already_applied_to_company(company_name):
                 self.apply_job(job)
             # вернуться обратно на страницу поиска
             self.driver.close()
@@ -246,40 +245,40 @@ class JobManager:
             for question in questions:
                 self._find_and_handle_textbox_question(question)
 
-    def _write_and_send_cover_letter(self) -> None:
-        """Написать и отправить работодателю сопроводительное письмо"""
-        cover_letter_text = "Cover letter" # self.gpt_answerer.write_cover_letter()
-        # cover_letter_element = self.driver.find_elements("xpath", "//*[@data-qa='vacancy-response-letter-toggle']")
-        # # если удалось найти форму для ввода сопроводительного письма - отправить его туда 
-        # if cover_letter_element:
-        #     cover_letter_element[0].click()
-        #     cover_letter_field = self.driver.find_element("xpath", "//*[@data-qa='vacancy-response-popup-form-letter-input']")
-        #     cover_letter_field.send_keys(cover_letter_text)
-        # else:
-        #     # если удалось найти форму для кнопку сопроводительного письма - нажать и отправить его 
-        #     cover_letter_buttons = self.driver.find_elements("xpath", f"//*[@data-qa='vacancy-response-letter-toggle']")
-        #     if cover_letter_buttons:
-        #         cover_letter_button = cover_letter_buttons[0]
-        #         self.driver.execute_script("arguments[0].scrollIntoView();", cover_letter_button)
-        #         cover_letter_button.click()
-        #         cover_letter_field = self.driver.find_element("xpath", f"//*[@data-qa='vacancy-response-letter-informer']")
-        #         cover_letter_text_field = cover_letter_field.find_element("tag name", 'textarea')
-        #         cover_letter_text_field.send_keys(cover_letter_text)
-        #     else:
-        #         # иначе зайти в чат с работодателем и отправить сопроводительное из него
-        #         chat_button = self.driver.find_element("xpath", f"//*[@data-qa='vacancy-response-link-view-topic']")
-        #         self.driver.execute_script("arguments[0].scrollIntoView();", chat_button)
-        #         chat_button.click()
-        #         iframes = self.driver.find_elements("tag name", "iframe")
-        #         for frame in iframes:
-        #             if frame.get_attribute('class') == "chatik-integration-iframe chatik-integration-iframe_loaded":
-        #                 self.driver.switch_to.frame(frame)
-        #                 self.driver.find_element("xpath", f"//*[@data-qa='chatik-chat-message-applicant-action-text']").click()
-        #                 text_element = self.driver.find_element("xpath", f"//*[@data-qa='chatik-new-message-text']")
-        #                 text_element.send_keys("test")
-        #                 text_element.send_keys(Keys.ENTER)
-        #                 break
-        #         self.driver.switch_to.default_content()
+    # def _write_and_send_cover_letter(self) -> None:
+    #     """Написать и отправить работодателю сопроводительное письмо"""
+    #     cover_letter_text = "Cover letter" # self.gpt_answerer.write_cover_letter()
+    #     cover_letter_element = self.driver.find_elements("xpath", "//*[@data-qa='vacancy-response-letter-toggle']")
+    #     # если удалось найти форму для ввода сопроводительного письма - отправить его туда 
+    #     if cover_letter_element:
+    #         cover_letter_element[0].click()
+    #         cover_letter_field = self.driver.find_element("xpath", "//*[@data-qa='vacancy-response-popup-form-letter-input']")
+    #         cover_letter_field.send_keys(cover_letter_text)
+    #     else:
+    #         # если удалось найти форму для кнопку сопроводительного письма - нажать и отправить его 
+    #         cover_letter_buttons = self.driver.find_elements("xpath", f"//*[@data-qa='vacancy-response-letter-toggle']")
+    #         if cover_letter_buttons:
+    #             cover_letter_button = cover_letter_buttons[0]
+    #             self.current_position = scroll_slow(self.driver, cover_letter_buttons[0], self.current_position)
+    #             cover_letter_button.click()
+    #             cover_letter_field = self.driver.find_element("xpath", f"//*[@data-qa='vacancy-response-letter-informer']")
+    #             cover_letter_text_field = cover_letter_field.find_element("tag name", 'textarea')
+    #             cover_letter_text_field.send_keys(cover_letter_text)
+    #         else:
+    #             # иначе зайти в чат с работодателем и отправить сопроводительное из него
+    #             chat_button = self.driver.find_element("xpath", f"//*[@data-qa='vacancy-response-link-view-topic']")
+    #             self.current_position = scroll_slow(self.driver, chat_button, self.current_position)
+    #             chat_button.click()
+    #             iframes = self.driver.find_elements("tag name", "iframe")
+    #             for frame in iframes:
+    #                 if frame.get_attribute('class') == "chatik-integration-iframe chatik-integration-iframe_loaded":
+    #                     self.driver.switch_to.frame(frame)
+    #                     self.driver.find_element("xpath", f"//*[@data-qa='chatik-chat-message-applicant-action-text']").click()
+    #                     text_element = self.driver.find_element("xpath", f"//*[@data-qa='chatik-new-message-text']")
+    #                     text_element.send_keys("test")
+    #                     text_element.send_keys(Keys.ENTER)
+    #                     break
+    #             self.driver.switch_to.default_content()
                 
     def _find_and_handle_textbox_question(self, question) -> bool:
         text_question_fields = question.find_elements("tag name", 'textarea')
@@ -322,16 +321,15 @@ class JobManager:
         if job in self.seen_jobs:
             logger.debug("Вакансия уже встречалась, пропускаем")
             return True
-        logger.debug("Вакансия еще не встречалась")
         self.seen_jobs.add(job)
         return False
 
     def _is_already_applied_to_company(self, company) -> bool:
         """Проверить, откликались ли мы уже на вакансии этой компании"""
         if company in self.seen_companies:
-            logger.debug("Компания уже встречалась")
-            return True
-        logger.debug("Компания еще не встречалась")
+            if APPLY_ONCE_AT_COMPANY:
+                logger.debug("Компания уже встречалась, пропускаем")
+                return True
         self.seen_companies.add(company)
         return False
     
@@ -354,17 +352,17 @@ class JobManager:
         suggestion_list = self.driver.find_elements(*suggest_item)
         if len(suggestion_list) > 0:
             suggestion_list[0].click()
-
+    
     def _find_by_text_and_click(self, text: str) -> None:
         """Функция для поиска элемента по тексту и клика по нему"""
         element = self.driver.find_element("xpath", f'//*[text()="{text}"]')
-        self.driver.execute_script("arguments[0].scrollIntoView();", element)
+        self.current_position = scroll_slow(self.driver, element, self.current_position)
         element.click()
 
     def _find_by_data_qa_and_click(self, text: str) -> None:
         """Функция для поиска элемента по тексту и клика по нему"""
         element = self.driver.find_element("xpath", f"//*[@data-qa='{text}']")
-        self.driver.execute_script("arguments[0].scrollIntoView();", element)
+        self.current_position = scroll_slow(self.driver, element, self.current_position)
         element.click()
     
     def _set_key_words(self) -> None:
@@ -411,7 +409,7 @@ class JobManager:
         if len(specialization_list) == 0:
             specialization_list = self.driver.find_elements("xpath", "//*[starts-with(@data-qa, 'bloko-tree-selector-item-text bloko-tree-selector-item-text')]")
         if len(specialization_list) > 0:
-            self.driver.execute_script("arguments[0].scrollIntoView();", specialization_list[0])
+            scroll_slow(self.driver, specialization_list[0], self.current_position)
             specialization_list[0].click()
             self.driver.find_element("xpath", "[data-qa='bloko-tree-selector-popup-submit']").click()
         else:
@@ -436,7 +434,7 @@ class JobManager:
         if len(industry_list) == 0:
             industry_list = self.driver.find_elements("xpath", "//*[starts-with(@data-qa, 'bloko-tree-selector-item-text bloko-tree-selector-item-text')]")
         if len(industry_list) > 0:
-            self.driver.execute_script("arguments[0].scrollIntoView();", industry_list[0])
+            scroll_slow(self.driver, industry_list[0], self.current_position)
             industry_list[0].click()
             self.driver.find_element("xpath", "//*[@data-qa='bloko-tree-selector-popup-submit']").click() 
         else:

@@ -96,3 +96,5 @@ llm_model: 'gpt-4o-mini'  # Модель LLM (обязательное поле)
 job_blacklist:
   - Google
   - Meta
+
+

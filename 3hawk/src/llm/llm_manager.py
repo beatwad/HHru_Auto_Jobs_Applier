@@ -21,6 +21,8 @@ from langchain_core.prompts import ChatPromptTemplate
 import src.strings as strings
 from loguru import logger
 
+from src.app_config import LLM_MODEL_TYPE, LLM_MODEL
+
 load_dotenv()
 
 
@@ -108,25 +110,22 @@ class AIAdapter:
         self.model = self._create_model(config, api_key)
 
     def _create_model(self, config: dict, api_key: str) -> AIModel:
-        llm_model_type = config['llm_model_type']
-        llm_model = config['llm_model']
-
         llm_api_url = config.get('llm_api_url', "")
 
-        logger.debug(f"Using {llm_model_type} with {llm_model}")
+        logger.debug(f"Using {LLM_MODEL_TYPE} with {LLM_MODEL}")
 
-        if llm_model_type == "openai":
-            return OpenAIModel(api_key, llm_model)
-        elif llm_model_type == "claude":
-            return ClaudeModel(api_key, llm_model)
-        elif llm_model_type == "ollama":
-            return OllamaModel(llm_model, llm_api_url)
-        elif llm_model_type == "gemini":
-            return GeminiModel(api_key, llm_model)
-        elif llm_model_type == "huggingface":
-            return HuggingFaceModel(api_key, llm_model)        
+        if LLM_MODEL_TYPE == "openai":
+            return OpenAIModel(api_key, LLM_MODEL)
+        elif LLM_MODEL_TYPE == "claude":
+            return ClaudeModel(api_key, LLM_MODEL)
+        elif LLM_MODEL_TYPE == "ollama":
+            return OllamaModel(LLM_MODEL, llm_api_url)
+        elif LLM_MODEL_TYPE == "gemini":
+            return GeminiModel(api_key, LLM_MODEL)
+        elif LLM_MODEL_TYPE == "huggingface":
+            return HuggingFaceModel(api_key, LLM_MODEL)        
         else:
-            raise ValueError(f"Unsupported model type: {llm_model_type}")
+            raise ValueError(f"Unsupported model type: {LLM_MODEL_TYPE}")
 
     def invoke(self, prompt: str) -> str:
         return self.model.invoke(prompt)

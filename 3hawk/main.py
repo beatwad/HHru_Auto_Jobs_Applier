@@ -1,5 +1,4 @@
 import os
-import re
 import sys
 from pathlib import Path
 import yaml
@@ -15,6 +14,13 @@ from src.bot_facade import BotFacade
 from src.job_manager import JobManager
 from loguru import logger
 
+# TODO: check the whole pipeline 
+# TODO: enter the search through resume menu
+# TODO: select from multiple resumes according to number_of_resume_to_select
+# TODO: check all search settings
+# TODO: write tests
+# TODO: write README
+
 log_file = "log/app_log.log"
 logger.add(log_file)
 
@@ -26,24 +32,8 @@ class ConfigError(Exception):
 
 class ConfigValidator:
     @staticmethod
-    def validate_email(email: str) -> bool:
-        return re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', email) is not None
-    
-    
-    @staticmethod
-    def validate_phone(phone_number: str) -> bool:
-        # Delete all parenthesis and '-' symbols from number
-        cleaned_number = re.sub(r'[()\-]', '', phone_number)
-        
-        # Regular expression to match a valid phone number
-        pattern = r"^\+?[1-9][0-9]{7,14}$"
-        
-        # Match the phone number with the pattern
-        return re.match(pattern, cleaned_number) is not None
-
-    
-    @staticmethod
-    def validate_yaml_file(yaml_path: Path) -> dict:
+    def load_yaml_file(yaml_path: Path) -> dict:
+        """Загрузить настройки из YAML файла конфигурации"""
         try:
             with open(yaml_path, 'r') as stream:
                 return yaml.safe_load(stream)
@@ -54,7 +44,8 @@ class ConfigValidator:
     
     
     def validate_config(self, config_yaml_path: Path) -> dict:
-        parameters = self.validate_yaml_file(config_yaml_path)
+        """Проверить правильность настроек из файлов конфигурации"""
+        parameters = self.load_yaml_file(config_yaml_path)
         # обязательные настройки
         required_keys = {
             'login': str,
@@ -63,8 +54,6 @@ class ConfigValidator:
             'sort_by': dict,
             'output_period': dict,
             'output_size': dict,
-            'llm_model_type': str,
-            'llm_model': str
         }
 
         # Проверить что все обязательные настройки находятся в файле настроек, а их поля имеют ожидаемый тип
@@ -180,7 +169,8 @@ class ConfigValidator:
 
     @staticmethod
     def validate_secrets(secrets_yaml_path: Path) -> tuple:
-        secrets = ConfigValidator.validate_yaml_file(secrets_yaml_path)
+        """Проверить наличие секретных ключей для LLM API"""
+        secrets = ConfigValidator.load_yaml_file(secrets_yaml_path)
         mandatory_secrets = ['llm_api_key']
 
         for secret in mandatory_secrets:
@@ -194,11 +184,8 @@ class ConfigValidator:
 
 class FileManager:
     @staticmethod
-    def find_file(name_containing: str, with_extension: str, at_path: Path) -> Path:
-        return next((file for file in at_path.iterdir() if name_containing.lower() in file.name.lower() and file.suffix.lower() == with_extension.lower()), None)
-
-    @staticmethod
     def validate_data_folder(app_data_folder: Path) -> tuple:
+        """Проверить наличие всех необходимых файлов настроек"""
         if not app_data_folder.exists() or not app_data_folder.is_dir():
             raise FileNotFoundError(f"Data folder not found: {app_data_folder}")
 
@@ -227,6 +214,7 @@ class FileManager:
 
 
 def init_driver() -> webdriver.Chrome:
+    """Инициализировать Selenium driver"""
     try:
         options = chrome_browser_options()
         service = ChromeService(ChromeDriverManager().install())
@@ -236,6 +224,7 @@ def init_driver() -> webdriver.Chrome:
 
 
 def create_and_run_bot(parameters, llm_api_key):
+    """Запустить бот"""
     try:
         with open(parameters['uploads']['plainTextResume'], 'r') as stream:
             resume_profile =  yaml.safe_load(stream)
@@ -259,8 +248,6 @@ def create_and_run_bot(parameters, llm_api_key):
     except Exception as e:
         raise RuntimeError(f"Error running the bot: {str(e)}")
 
-# @click.command()
-# @click.option('--resume', type=click.Path(exists=True, file_okay=True, dir_okay=False, path_type=Path), help="Path to the resume PDF file")
 def main():
     try:
         data_folder = Path("data_folder")
@@ -274,20 +261,20 @@ def main():
         
         create_and_run_bot(parameters, llm_api_key)
     except ConfigError as ce:
-        logger.error(f"Configuration error: {str(ce)}")
-        logger.error(f"Refer to the configuration guide for troubleshooting: https://github.com/feder-cr/AIHawk_AIHawk_automatic_job_application/blob/main/readme.md#configuration {str(ce)}")
+        logger.error(f"Ошибка конфигурации: {str(ce)}")
+        # logger.error(f"Refer to the configuration guide for troubleshooting: https://github.com/feder-cr/AIHawk_AIHawk_automatic_job_application/blob/main/readme.md#configuration {str(ce)}")
     except FileNotFoundError as fnf:
-        logger.error(f"File not found: {str(fnf)}")
-        logger.error("Ensure all required files are present in the data folder.")
-        logger.error("Refer to the file setup guide: https://github.com/feder-cr/AIHawk_AIHawk_automatic_job_application/blob/main/readme.md#configuration")
+        logger.error(f"Файл не найден: {str(fnf)}")
+        logger.error("Убедитесь, что все необходимые файлы находятся в папке data_folder")
+        # logger.error("Refer to the file setup guide: https://github.com/feder-cr/AIHawk_AIHawk_automatic_job_application/blob/main/readme.md#configuration")
     except RuntimeError:
         tb_str = traceback.format_exc()
         logger.error(f"Runtime error: {tb_str}")
-        logger.error("Refer to the configuration and troubleshooting guide: https://github.com/feder-cr/AIHawk_AIHawk_automatic_job_application/blob/main/readme.md#configuration")
+        # logger.error("Refer to the configuration and troubleshooting guide: https://github.com/feder-cr/AIHawk_AIHawk_automatic_job_application/blob/main/readme.md#configuration")
     except Exception:
         tb_str = traceback.format_exc()
         logger.error(f"Неизвестная ошибка: {tb_str}")
-        logger.error("Refer to the general troubleshooting guide: https://github.com/feder-cr/AIHawk_AIHawk_automatic_job_application/blob/main/readme.md#configuration")
+        # logger.error("Refer to the general troubleshooting guide: https://github.com/feder-cr/AIHawk_AIHawk_automatic_job_application/blob/main/readme.md#configuration")
 
 if __name__ == "__main__":
     main()
