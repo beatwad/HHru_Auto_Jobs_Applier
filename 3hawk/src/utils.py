@@ -5,7 +5,6 @@ import sys
 import time
 
 from selenium import webdriver
-from selenium.webdriver.remote.webelement import WebElement
 
 from loguru import logger
 
@@ -34,34 +33,6 @@ def ensure_chrome_profile():
         os.makedirs(chromeProfilePath)
         logger.debug(f"Created Chrome profile directory: {chromeProfilePath}")
     return chromeProfilePath
-
-
-def scroll_slow(driver: webdriver.Chrome, element: WebElement, current_position: int, time_to_scroll_sec: float = 2):
-    """Медленно скроллить страницу, пока не дойдем до элемента"""
-    # Get the element's position on the page
-    element_position = element.location['y']
-
-    # определить размер шага, необходимый для того, чтобы
-    # доскроллить до элемента за время time_to_scroll_sec
-    sleep_time = 0.01
-    distance = abs(current_position - element_position)
-    step_num = time_to_scroll_sec // sleep_time + 1
-    step = distance // step_num + 1
-    
-    # медленно скроллим до нужного нам элемента
-    if current_position < element_position:
-        while current_position < element_position - 30:
-            current_position += step
-            driver.execute_script(f"window.scrollTo(0, {current_position});")
-            time.sleep(sleep_time)
-    else:
-        while current_position > element_position + 30:
-            current_position -= step
-            driver.execute_script(f"window.scrollTo(0, {current_position});")
-            time.sleep(sleep_time) 
-    
-    time.sleep(0.5)
-    return current_position
 
 
 def chrome_browser_options():

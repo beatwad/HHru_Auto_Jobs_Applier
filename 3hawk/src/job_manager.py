@@ -1,20 +1,24 @@
 from typing import List, Dict, Tuple
 
+import os
 import re
 import json
 import random
 import time
 import traceback
+from pathlib import Path
 
 from inputimeout import inputimeout, TimeoutOccurred
-from selenium.common.exceptions import NoSuchElementException
+
+from selenium import webdriver
+from selenium.webdriver.remote.webelement import WebElement
+from selenium.common.exceptions import NoSuchElementException, TimeoutException
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
 from src.app_config import MINIMUM_WAIT_TIME_SEC, APPLY_ONCE_AT_COMPANY
 from loguru import logger
-from src.utils import scroll_slow
 
 
 class JobManager:
@@ -23,7 +27,7 @@ class JobManager:
         logger.debug("Инициализация JobManager")
         self.driver = driver
         self.gpt_answerer = None
-        self.wait = WebDriverWait(driver, 15, poll_frequency=1)
+        self.wait = WebDriverWait(driver, 4, poll_frequency=1)
         self.seen_companies = set()
         self.seen_jobs = set()
         self.page_num = 1
@@ -59,7 +63,9 @@ class JobManager:
     def set_advanced_search_params(self) -> None:
         """Задать дополнительные параметры поиска в hh.ru"""
         self.driver.get("https://hh.ru/search/vacancy/advanced")
-
+        keywords_element = ("xpath", "//*[@data-qa='vacancysearch__keywords-input']")
+        self.wait.until(EC.visibility_of_element_located(keywords_element))
+        self.current_position = 0
         self._set_key_words()
         self._set_search_only()
         self._set_words_to_exclude()
@@ -104,6 +110,7 @@ class JobManager:
                     text = f"number-pages-{self.page_num}"
                     try:
                         next_page = self.driver.find_element("xpath", f"//*[starts-with(@data-qa, '{text}')]")
+                        self.current_position = self._scroll_slow(next_page, self.current_position)
                         next_page.click()
                     except NoSuchElementException:
                         break
@@ -123,6 +130,7 @@ class JobManager:
         self.driver.find_element("xpath", f"//*[@data-qa='vacancy-response-link-top']").click()
         self._find_and_handle_questions()
         self._write_and_send_cover_letter()
+        self._pause()
 
     def write_to_file(self, job, file_name):
         # TODO: добавить запись результатов откликов в файл
@@ -132,14 +140,42 @@ class JobManager:
         # TODO: добавить черный список компаний
         pass
 
+    
+    def _scroll_slow(self, element: WebElement, current_position: int, time_to_scroll_sec: float = 2) -> int:
+        """Медленно скроллить страницу, пока не дойдем до элемента"""
+        # Get the element's position on the page
+        element_position = element.location['y']
+
+        # определить размер шага, необходимый для того, чтобы
+        # доскроллить до элемента за время time_to_scroll_sec
+        sleep_time = 0.01
+        distance = abs(current_position - element_position)
+        step_num = time_to_scroll_sec // sleep_time + 1
+        step = distance // step_num + 1
+        
+        # медленно скроллим до нужного нам элемента
+        if current_position < element_position:
+            while current_position < element_position - 30:
+                current_position += step
+                self.driver.execute_script(f"window.scrollTo(0, {current_position});")
+                time.sleep(sleep_time)
+        else:
+            while current_position > element_position + 30:
+                current_position -= step
+                self.driver.execute_script(f"window.scrollTo(0, {current_position});")
+                time.sleep(sleep_time) 
+        
+        time.sleep(0.5)
+        return current_position
+    
     def _send_repsonses(self) -> None:
         """Разослать отклики всем работодателям на странице"""
-        minimum_time = MINIMUM_WAIT_TIME_SEC
-        minimum_page_time = time.time() + minimum_time
+        self.current_position = 0
+        minimum_page_time = time.time() + MINIMUM_WAIT_TIME_SEC
         employers = self.driver.find_elements("xpath", "//*[starts-with(@data-qa, 'serp-item__title-text')]")
-        random.shuffle(employers)
         for employer in employers:
             # зайти на страницу к работодателю
+            self.current_position = self._scroll_slow(employer, self.current_position)
             employer.click()
             self._pause()
             window_handles = self.driver.window_handles
@@ -157,7 +193,9 @@ class JobManager:
                 self.apply_job(job)
             # вернуться обратно на страницу поиска
             self.driver.close()
+            self._pause()
             self.driver.switch_to.window(window_handles[0])
+            time.sleep(3600) # !!!
         # если страница была обработана быстрее, чем за минимальное время - 
         # подождать, пока это время не закончится       
         time_left = int(minimum_page_time - time.time())
@@ -182,7 +220,7 @@ class JobManager:
             "vacancy-view-raw-address", "vacancy-view-location", "vacancy-branded", 
             "vacancy-description", "skills-element"
             ]
-
+        self.wait.until(EC.visibility_of_element_located(("xpath", "//*[@data-qa='vacancy-title']")))
         for key, data_qa in zip(description_keys, data_qas):
             if key == "skills":
                 skill_list = self.driver.find_elements("xpath", f"//*[@data-qa='{data_qa}']")
@@ -197,24 +235,49 @@ class JobManager:
                 job[key] = None
         
         return job
-    
-    def _sleep(self, sleep_interval: Tuple[int, int]) -> None:
-        low, high = sleep_interval
-        sleep_time = random.randint(low, high)
-        try:
-            user_input = inputimeout(
-                prompt=f"Делаем паузу на {round(sleep_time / 60, 2)} минут(ы). Нажмите Enter, чтобы прекратить ожидание.",
-                timeout=sleep_time).strip().lower()
-        except TimeoutOccurred:
-            user_input = ''  # No input after timeout
-        if user_input != '':
-            logger.debug("Прекращаем ожидание.")
-        else:
-            logger.debug(f"Ожидание продлилось {sleep_time} секунд.")
 
+    @staticmethod
+    def _define_answers_output_file() -> Path:
+        try:
+            output_file = os.path.join(
+                Path("data_folder/output"), "answers.json")
+            logger.debug(f"Logging path determined: {output_file}")
+        except Exception as e:
+            logger.error(f"Error determining the answer path: {str(e)}")
+            raise
+        return output_file
+    
+    def _save_questions_to_json(self, question_data: dict) -> None:
+        """Сохранить вопрос в файл"""
+        output_file = self._define_answers_output_file()
+        question_data['question'] = self._sanitize_text(question_data['question'])
+        logger.debug(f"Saving question data to JSON: {question_data}")
+        try:
+            try:
+                with open(output_file, 'r') as f:
+                    try:
+                        data = json.load(f)
+                        if not isinstance(data, list):
+                            raise ValueError("JSON file format is incorrect. Expected a list of questions.")
+                    except json.JSONDecodeError:
+                        logger.error("JSON decoding failed")
+                        data = []
+            except FileNotFoundError:
+                logger.warning("JSON file not found, creating new file")
+                data = []
+            data.append(question_data)
+            with open(output_file, 'w') as f:
+                json.dump(data, f, indent=4)
+            logger.debug("Question data saved successfully to JSON")
+        except Exception:
+            tb_str = traceback.format_exc()
+            logger.error(f"Error saving questions data to JSON file: {tb_str}")
+            raise Exception(f"Error saving questions data to JSON file: \nTraceback:\n{tb_str}")
+        
+    
     def _load_questions_from_json(self) -> List[dict]:
         """Загрузить файл с уже готовыми ответами на вопросы"""
-        output_file = 'answers.json'
+        output_file = self._define_answers_output_file()
         logger.debug(f"Loading questions from JSON file: {output_file}")
         try:
             with open(output_file, 'r') as f:
@@ -237,47 +300,58 @@ class JobManager:
         
     def _find_and_handle_questions(self) -> None:
         """Если на странице есть вопросы - использовать LLM для ответа на них"""
-        questions = self.driver.find_elements("xpath", "//*[@data-qa='task-body']")
+        question_element = ("xpath", "//*[@data-qa='task-body']")
+        try:
+            self.wait.until(EC.visibility_of_element_located(question_element))
+        except TimeoutException:
+            return
+        questions = self.driver.find_elements(*question_element)
         if questions:
-            logger.debug("Searching for text fields in the section.")
+            logger.debug("Нашли вопрос(ы).")
             for question in questions:
                 self._find_and_handle_textbox_question(question)
+        else:
+            logger.debug("Вопросы не найдены.")
 
     def _write_and_send_cover_letter(self) -> None:
         """Написать и отправить работодателю сопроводительное письмо"""
         cover_letter_text = self.gpt_answerer.write_cover_letter()
-        cover_letter_element = self.driver.find_elements("xpath", "//*[@data-qa='vacancy-response-letter-toggle']")
+        cover_letter_field = self.driver.find_elements("xpath", "//*[@data-qa='vacancy-response-popup-form-letter-input']")
         # если удалось найти форму для ввода сопроводительного письма - отправить его туда 
-        if cover_letter_element:
-            cover_letter_element[0].click()
-            cover_letter_field = self.driver.find_element("xpath", "//*[@data-qa='vacancy-response-popup-form-letter-input']")
-            cover_letter_field.send_keys(cover_letter_text)
+        if cover_letter_field:
+            cover_letter_field = cover_letter_field[0]
+            position = self._scroll_slow(cover_letter_field, 0)
+            self._enter_text(cover_letter_field, cover_letter_text)
+            # нажать на кнопку отклика
+            response_button = self.driver.find_element("xpath", "//*[@data-qa='vacancy-response-submit-popup']")
+            self._scroll_slow(response_button, position)
+            # response_button.click() !!!
         else:
-            # если удалось найти форму для кнопку сопроводительного письма - нажать и отправить его 
+            # если удалось найти кнопки добавления сопроводительного письма - нажать и отправить его 
             cover_letter_buttons = self.driver.find_elements("xpath", f"//*[@data-qa='vacancy-response-letter-toggle']")
             if cover_letter_buttons:
                 cover_letter_button = cover_letter_buttons[0]
-                self.current_position = scroll_slow(self.driver, cover_letter_buttons[0], self.current_position)
+                self._scroll_slow(cover_letter_buttons[0], 0)
                 cover_letter_button.click()
                 cover_letter_field = self.driver.find_element("xpath", f"//*[@data-qa='vacancy-response-letter-informer']")
                 cover_letter_text_field = cover_letter_field.find_element("tag name", 'textarea')
-                cover_letter_text_field.send_keys(cover_letter_text)
+                self._enter_text(cover_letter_text_field, cover_letter_text)
             else:
                 # иначе зайти в чат с работодателем и отправить сопроводительное из него
                 chat_button = self.driver.find_element("xpath", f"//*[@data-qa='vacancy-response-link-view-topic']")
-                self.current_position = scroll_slow(self.driver, chat_button, self.current_position)
+                self._scroll_slow(chat_button, 0)
                 chat_button.click()
                 iframes = self.driver.find_elements("tag name", "iframe")
                 for frame in iframes:
                     if frame.get_attribute('class') == "chatik-integration-iframe chatik-integration-iframe_loaded":
                         self.driver.switch_to.frame(frame)
                         self.driver.find_element("xpath", f"//*[@data-qa='chatik-chat-message-applicant-action-text']").click()
-                        text_element = self.driver.find_element("xpath", f"//*[@data-qa='chatik-new-message-text']")
-                        text_element.send_keys("test")
-                        text_element.send_keys(Keys.ENTER)
+                        text_field = self.driver.find_element("xpath", f"//*[@data-qa='chatik-new-message-text']")
+                        self._enter_text(text_field, cover_letter_text)
+                        self._pause()
+                        text_field.send_keys(Keys.ENTER)
                         break
                 self.driver.switch_to.default_content()
-        time.sleep(3600)
                 
     def _find_and_handle_textbox_question(self, question) -> bool:
         text_question_fields = question.find_elements("tag name", 'textarea')
@@ -301,15 +375,13 @@ class JobManager:
                 answer = self.gpt_answerer.answer_question_textual_wide_range(question_text)
                 logger.debug(f"Сгенерирован ответ: {answer}")
 
-            self._enter_text(text_field, answer)
-            logger.debug("Ответ введен в textbox")
-
             # Save non-cover letter answers
             self._save_questions_to_json({'question': question_text, 'answer': answer})
             logger.debug("Тестовый вопрос сохранен в JSON.")
 
             time.sleep(1)
-            text_field.send_keys(answer)
+            self._enter_text(text_field, answer)
+            logger.debug("Ответ введен в textbox")
             return True
 
         logger.debug("No text fields found in the section.")
@@ -332,45 +404,55 @@ class JobManager:
         self.seen_companies.add(company)
         return False
     
+    def _enter_text(self, element: WebElement, text: str) -> None:
+        logger.debug(f"Entering text: {text}")
+        element.clear()
+        element.send_keys(text)
+    
     @staticmethod
     def _pause(low: int = 1, high: int = 2) -> None:
         """
         Выдержать случайную паузу в диапазоне от 
-        low секунд до high секунд
+        low секунд до high секунд. 
+        Используется для имитации пользовательского поведения.
         """
         pause = round(random.uniform(low, high), 1)
         time.sleep(pause)
-    
-    def _select_suggestion(self) -> None:
-        """
-        Функция для поиска и выбора первой подсказки в списке подсказок, 
-        появляющихся во время поиска
-        """
-        suggest_item = ("class name", "suggest__item")
-        self.wait.until(EC.element_to_be_clickable(suggest_item))
-        suggestion_list = self.driver.find_elements(*suggest_item)
-        if len(suggestion_list) > 0:
-            suggestion_list[0].click()
+
+    @staticmethod
+    def _sleep(sleep_interval: Tuple[int, int]) -> None:
+        """Аналог _pause, но ожидание можно прервать"""
+        low, high = sleep_interval
+        sleep_time = random.randint(low, high)
+        try:
+            user_input = inputimeout(
+                prompt=f"Делаем паузу на {round(sleep_time / 60, 2)} минут(ы). Нажмите Enter, чтобы прекратить ожидание.",
+                timeout=sleep_time).strip().lower()
+        except TimeoutOccurred:
+            user_input = ''  # No input after timeout
+        if user_input != '':
+            logger.debug("Прекращаем ожидание.")
+        else:
+            logger.debug(f"Ожидание продлилось {sleep_time} секунд.")
     
     def _find_by_text_and_click(self, text: str) -> None:
         """Функция для поиска элемента по тексту и клика по нему"""
         element = self.driver.find_element("xpath", f'//*[text()="{text}"]')
-        self.current_position = scroll_slow(self.driver, element, self.current_position)
+        self.current_position = self._scroll_slow(element, self.current_position)
         element.click()
 
     def _find_by_data_qa_and_click(self, text: str) -> None:
         """Функция для поиска элемента по тексту и клика по нему"""
         element = self.driver.find_element("xpath", f"//*[@data-qa='{text}']")
-        self.current_position = scroll_slow(self.driver, element, self.current_position)
+        self.current_position = self._scroll_slow(element, self.current_position)
         element.click()
     
     def _set_key_words(self) -> None:
         """Задать ключевые слова"""
-        keywords_element = self.driver.find_element("xpath", "//*[@data-qa='vacancysearch__keywords-input']")
-        keywords_element.send_keys(', '.join(self.keywords))
+        keywords_field = self.driver.find_element("xpath", "//*[@data-qa='vacancysearch__keywords-input']")
+        self._enter_text(keywords_field, ', '.join(self.keywords))
         self._pause()
-        keywords_element.send_keys(Keys.TAB)
-        # self._select_suggestion()
+        keywords_field.send_keys(Keys.TAB)
 
     def _set_search_only(self) -> None:
         """Искать только"""
@@ -388,7 +470,8 @@ class JobManager:
         if not self.words_to_exclude:
             return
         words_to_exclude_element = self.driver.find_element("xpath", "//*[@data-qa='vacancysearch__keywords-excluded-input']")
-        words_to_exclude_element.send_keys(', '.join(self.words_to_exclude))
+        self._enter_text(words_to_exclude_element, ', '.join(self.words_to_exclude))
+        
 
     def _set_specialization(self) -> None:   
         """Задать специализацию"""
@@ -400,7 +483,7 @@ class JobManager:
         # Ввести специализацию в поисковую строку
         self.wait.until(EC.visibility_of_element_located(specialization_item))
         specialization_element = self.driver.find_element("xpath", "//*[@data-qa='bloko-tree-selector-popup-search']")
-        specialization_element.send_keys(self.specialization)
+        self._enter_text(specialization_element, self.specialization)
         self._pause()
         # Попытаться найти специализацию с таким же названием, что и название специализации в переменной
         specialization_list = self.driver.find_elements("xpath", f'//*[text()="{self.specialization}"]')
@@ -408,7 +491,7 @@ class JobManager:
         if len(specialization_list) == 0:
             specialization_list = self.driver.find_elements("xpath", "//*[starts-with(@data-qa, 'bloko-tree-selector-item-text bloko-tree-selector-item-text')]")
         if len(specialization_list) > 0:
-            scroll_slow(self.driver, specialization_list[0], self.current_position)
+            self.current_position = self._scroll_slow(specialization_list[0], self.current_position)
             specialization_list[0].click()
             self.driver.find_element("xpath", "[data-qa='bloko-tree-selector-popup-submit']").click()
         else:
@@ -424,8 +507,7 @@ class JobManager:
         # Ввести отрасль в поисковую строку
         self.wait.until(EC.visibility_of_element_located(industry_item))
         industry_element = self.driver.find_element(*industry_item)
-        industry_element.clear()
-        industry_element.send_keys(self.industry)
+        self._enter_text(industry_element, self.industry)
         self._pause()
         # Попытаться найти отрасль с таким же названием, что и название отрасли в переменной
         industry_list = self.driver.find_elements("xpath", f'//*[text()="{self.industry}"]')
@@ -433,7 +515,7 @@ class JobManager:
         if len(industry_list) == 0:
             industry_list = self.driver.find_elements("xpath", "//*[starts-with(@data-qa, 'bloko-tree-selector-item-text bloko-tree-selector-item-text')]")
         if len(industry_list) > 0:
-            scroll_slow(self.driver, industry_list[0], self.current_position)
+            self.current_position = self._scroll_slow(industry_list[0], self.current_position)
             industry_list[0].click()
             self.driver.find_element("xpath", "//*[@data-qa='bloko-tree-selector-popup-submit']").click() 
         else:
@@ -443,11 +525,9 @@ class JobManager:
         """Задать регион"""
         region_element = self.driver.find_element("xpath",f"//*[@data-qa='advanced-search-region-add']")
         for region in self.regions:
-            region_element.clear()
-            region_element.send_keys(region)
+            self._enter_text(region_element, region)
             self._pause()
             region_element.send_keys(Keys.TAB)
-            # self._select_suggestion()
 
     def _set_district(self) -> None:   
         """Задать район (если есть на странице)"""
@@ -457,11 +537,9 @@ class JobManager:
             pass
         else:
             for district in self.districts:
-                district_element.clear()
-                district_element.send_keys(district)
+                self._enter_text(district_element, district)
                 self._pause()
                 district_element.send_keys(Keys.TAB)
-                # self._select_suggestion()
                 
     def _set_subway(self) -> None:   
         """Задать метро (если есть на странице)"""
@@ -471,17 +549,15 @@ class JobManager:
             pass
         else:
             for station in self.subway:
-                subway_element.clear()
-                subway_element.send_keys(station)
+                self._enter_text(subway_element, station)
                 self._pause()
                 subway_element.send_keys(Keys.TAB)
-                # self._select_suggestion()
 
     def _set_income(self) -> None:   
         """Задать уровень дохода"""
         if self.income > 0:
             income_element = self.driver.find_element("xpath", "//*[@data-qa='advanced-search-salary']")
-            income_element.send_keys(self.income)
+            self._enter_text(income_element, self.income)
 
     def _set_education(self) -> None:   
         """Задать образование"""    
