@@ -223,26 +223,68 @@ This comprehensive overview will serve as a guideline for the recruitment proces
 # Job Description Summary"""
 
 coverletter_template = """
-Compose a brief and impactful cover letter based on the provided job description and resume. The letter should be no longer than three paragraphs and should be written in a professional, yet conversational tone. Avoid using any placeholders, and ensure that the letter flows naturally and is tailored to the job.
+Составь краткое и выразительное сопроводительное письмо на основе предоставленного описания вакансии и резюме. 
+Письмо должно быть не длиннее пяти абзацев и должно быть написано в профессиональном, но разговорном тоне. 
+Избегай использования каких-либо заполнителей и убедитесь, что письмо читается естественно и соответствует вакансии.
+Проанализируй описание вакансии, чтобы определить ключевые квалификации и требования. 
+В начале поприветствуй адресата и напиши, какая вакансия заинтересовала, а затем представь кандидата кратко, сопоставив его карьерные цели с вакансией. 
+Выдели соответствующие навыки и опыт из резюме, которые напрямую соответствуют требованиям вакансии, используя конкретные примеры для иллюстрации этих квалификаций. 
+Затем напиши, почему кандидат хорошо подходит для этой должности, выразив желание обсудить это более подробно.
+В заключении поблагодари адресата за рассмотрение своей кандидатуры и предложи обсудить ваш опыт подробнее на собеседовании.
+Напиши сопроводительное письмо таким образом, чтобы оно напрямую касалось должности и характеристик компании, 
+при этом оно должно быть кратким и интересным, без ненужных украшений. Письмо должно быть отформатировано в абзацах.
+Если описание вакансии написано на русском языке - напиши сопроводительное письмо также на русском языке. В противном случае напишите его на английском языке.
 
-Analyze the job description to identify key qualifications and requirements. Introduce the candidate succinctly, aligning their career objectives with the role. Highlight relevant skills and experiences from the resume that directly match the job’s demands, using specific examples to illustrate these qualifications. Reference notable aspects of the company, such as its mission or values, that resonate with the candidate’s professional goals. Conclude with a strong statement of why the candidate is a good fit for the position, expressing a desire to discuss further.
+## Правила:
+- Предоставь только текст сопроводительного письма.
+- Письмо должно быть отформатировано в абзацы.
+- Если обнаружишь какие-либо вопросы в описании вакансии - ответь на них в сопроводительном письме, используя информацию из резюме.
+- Если в описании вакансии требуют написать в сопроводительном письме какие-либо ключевые слова - напиши их.
 
-Please write the cover letter in a way that directly addresses the job role and the company’s characteristics, ensuring it remains concise and engaging without unnecessary embellishments. The letter should be formatted into paragraphs and should not include a greeting or signature.
+Примеры сопроводительных писем:
+## Пример 1:
+```
+Здравствуйте!
+Меня привлекла вакансия графического дизайнера, так как я хочу работать в динамичной и творческой компании, занимаясь тем, что люблю.
 
-If job description is written in Russian - write the cover letter in Russian too. Else write it in English.
+Я много знаю о вашей компании и всегда слежу за вашими проектами и выставками, а также читаю ваш блог — он очень оригинальный и вдохновляющий. 
+Хотел бы присоединиться к вашей команде, чтобы создавать уникальные дизайны, взаимодействовать с клиентами и разрабатывать визуально привлекательные материалы.
+У меня высшее образование (магистратура) в сфере дизайна и успешный опыт работы в роли иллюстратора. 
+В моём портфолио — создание графических материалов, рекламные кампании, продвижение, работа с клиентами, а также подготовка макетов и презентаций. 
+Я умею эффективно решать сложные задачи и быстро адаптироваться к требованиям.
 
-Job description may contanin a questions that most be answered in the cover letter. If you find any questions in job description - answer them in cover letter using information from resume. 
+Владею английским языком на уровне B1 и продолжаю активно учиться и повышать уровень.
+Подробнее о моём профессиональном опыте можно узнать в резюме.
+Благодарю за внимание к моей кандидатуре.
+```
 
-## Rules:
-- Provide only the text of the cover letter.
-- Do not include any introductions, explanations, or additional information.
-- The letter should be formatted into paragraph.
+## Пример 2:
+```
+Добрый день!
 
-## Job Description:
+Меня заинтересовала вакансия инженера-проектировщика в вашей компании. Обладаю высоким уровнем профессиональных знаний в области проектирования, 
+а также работал с крупными проектами. Моё образование и опыт позволяют мне успешно решать сложные задачи и достигать поставленных целей.
+
+Буду рад обсудить возможность сотрудничества.
+
+С уважением, Даниил
+```
+
+## Пример 3:
+```
+Здравствуйте! Я бы хотел пройти стажировку в вашем банке. Я студент 3-го курса факультета информационных технологий в НИУ ВШЭ. 
+Обладаю глубоким пониманием аналитики и креативным подходом к решению задач. 
+Участвовал в создании программных решений для учебных проектов, занимался проверкой и анализом данных. 
+Также успешно прошёл летнюю стажировку в ИТ-компании.
+
+С уважением, Андрей
+```
+
+## Описание работы:
 ```
 {job_description}
 ```
-## My resume:
+## Мое резюме:
 ```
 {resume}
 ```

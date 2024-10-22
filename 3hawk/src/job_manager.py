@@ -108,7 +108,6 @@ class JobManager:
                     except NoSuchElementException:
                         break
                 self._send_repsonses()
-                break  # !!!
                 self.page_num += 1
                 # делать случайную паузу на каждой странице
                 self._sleep((20, 40))
@@ -116,14 +115,13 @@ class JobManager:
             except Exception:
                 tb_str = traceback.format_exc()
                 logger.error(f"Неизвестная ошибка: {tb_str}")
-                break  # !!!
                 continue
     
     def apply_job(self, job: dict):
         """Откликнусться на вакансию"""
         self.gpt_answerer.set_job(job)
-        # self.driver.find_element("xpath", f"//*[@data-qa='vacancy-response-link-top']").click()
-        # self._find_and_handle_questions()
+        self.driver.find_element("xpath", f"//*[@data-qa='vacancy-response-link-top']").click()
+        self._find_and_handle_questions()
         self._write_and_send_cover_letter()
 
     def write_to_file(self, job, file_name):
@@ -143,6 +141,7 @@ class JobManager:
         for employer in employers:
             # зайти на страницу к работодателю
             employer.click()
+            self._pause()
             window_handles = self.driver.window_handles
             self.driver.switch_to.window(window_handles[-1])
             # собрать описание вакансии
@@ -159,7 +158,6 @@ class JobManager:
             # вернуться обратно на страницу поиска
             self.driver.close()
             self.driver.switch_to.window(window_handles[0])
-            break  # !!!
         # если страница была обработана быстрее, чем за минимальное время - 
         # подождать, пока это время не закончится       
         time_left = int(minimum_page_time - time.time())
@@ -245,40 +243,41 @@ class JobManager:
             for question in questions:
                 self._find_and_handle_textbox_question(question)
 
-    # def _write_and_send_cover_letter(self) -> None:
-    #     """Написать и отправить работодателю сопроводительное письмо"""
-    #     cover_letter_text = "Cover letter" # self.gpt_answerer.write_cover_letter()
-    #     cover_letter_element = self.driver.find_elements("xpath", "//*[@data-qa='vacancy-response-letter-toggle']")
-    #     # если удалось найти форму для ввода сопроводительного письма - отправить его туда 
-    #     if cover_letter_element:
-    #         cover_letter_element[0].click()
-    #         cover_letter_field = self.driver.find_element("xpath", "//*[@data-qa='vacancy-response-popup-form-letter-input']")
-    #         cover_letter_field.send_keys(cover_letter_text)
-    #     else:
-    #         # если удалось найти форму для кнопку сопроводительного письма - нажать и отправить его 
-    #         cover_letter_buttons = self.driver.find_elements("xpath", f"//*[@data-qa='vacancy-response-letter-toggle']")
-    #         if cover_letter_buttons:
-    #             cover_letter_button = cover_letter_buttons[0]
-    #             self.current_position = scroll_slow(self.driver, cover_letter_buttons[0], self.current_position)
-    #             cover_letter_button.click()
-    #             cover_letter_field = self.driver.find_element("xpath", f"//*[@data-qa='vacancy-response-letter-informer']")
-    #             cover_letter_text_field = cover_letter_field.find_element("tag name", 'textarea')
-    #             cover_letter_text_field.send_keys(cover_letter_text)
-    #         else:
-    #             # иначе зайти в чат с работодателем и отправить сопроводительное из него
-    #             chat_button = self.driver.find_element("xpath", f"//*[@data-qa='vacancy-response-link-view-topic']")
-    #             self.current_position = scroll_slow(self.driver, chat_button, self.current_position)
-    #             chat_button.click()
-    #             iframes = self.driver.find_elements("tag name", "iframe")
-    #             for frame in iframes:
-    #                 if frame.get_attribute('class') == "chatik-integration-iframe chatik-integration-iframe_loaded":
-    #                     self.driver.switch_to.frame(frame)
-    #                     self.driver.find_element("xpath", f"//*[@data-qa='chatik-chat-message-applicant-action-text']").click()
-    #                     text_element = self.driver.find_element("xpath", f"//*[@data-qa='chatik-new-message-text']")
-    #                     text_element.send_keys("test")
-    #                     text_element.send_keys(Keys.ENTER)
-    #                     break
-    #             self.driver.switch_to.default_content()
+    def _write_and_send_cover_letter(self) -> None:
+        """Написать и отправить работодателю сопроводительное письмо"""
+        cover_letter_text = self.gpt_answerer.write_cover_letter()
+        cover_letter_element = self.driver.find_elements("xpath", "//*[@data-qa='vacancy-response-letter-toggle']")
+        # если удалось найти форму для ввода сопроводительного письма - отправить его туда 
+        if cover_letter_element:
+            cover_letter_element[0].click()
+            cover_letter_field = self.driver.find_element("xpath", "//*[@data-qa='vacancy-response-popup-form-letter-input']")
+            cover_letter_field.send_keys(cover_letter_text)
+        else:
+            # если удалось найти форму для кнопку сопроводительного письма - нажать и отправить его 
+            cover_letter_buttons = self.driver.find_elements("xpath", f"//*[@data-qa='vacancy-response-letter-toggle']")
+            if cover_letter_buttons:
+                cover_letter_button = cover_letter_buttons[0]
+                self.current_position = scroll_slow(self.driver, cover_letter_buttons[0], self.current_position)
+                cover_letter_button.click()
+                cover_letter_field = self.driver.find_element("xpath", f"//*[@data-qa='vacancy-response-letter-informer']")
+                cover_letter_text_field = cover_letter_field.find_element("tag name", 'textarea')
+                cover_letter_text_field.send_keys(cover_letter_text)
+            else:
+                # иначе зайти в чат с работодателем и отправить сопроводительное из него
+                chat_button = self.driver.find_element("xpath", f"//*[@data-qa='vacancy-response-link-view-topic']")
+                self.current_position = scroll_slow(self.driver, chat_button, self.current_position)
+                chat_button.click()
+                iframes = self.driver.find_elements("tag name", "iframe")
+                for frame in iframes:
+                    if frame.get_attribute('class') == "chatik-integration-iframe chatik-integration-iframe_loaded":
+                        self.driver.switch_to.frame(frame)
+                        self.driver.find_element("xpath", f"//*[@data-qa='chatik-chat-message-applicant-action-text']").click()
+                        text_element = self.driver.find_element("xpath", f"//*[@data-qa='chatik-new-message-text']")
+                        text_element.send_keys("test")
+                        text_element.send_keys(Keys.ENTER)
+                        break
+                self.driver.switch_to.default_content()
+        time.sleep(3600)
                 
     def _find_and_handle_textbox_question(self, question) -> bool:
         text_question_fields = question.find_elements("tag name", 'textarea')
