@@ -1,9 +1,12 @@
+from typing import Any
+
 import os
 import sys
 import time
-import traceback
 
 from selenium import webdriver
+from selenium.webdriver.remote.webelement import WebElement
+
 from loguru import logger
 
 from src.app_config import MINIMUM_LOG_LEVEL
@@ -33,30 +36,29 @@ def ensure_chrome_profile():
     return chromeProfilePath
 
 
-def is_scrollable(element):
-    scroll_height = element.get_attribute("scrollHeight")
-    client_height = element.get_attribute("clientHeight")
-    scrollable = int(scroll_height) > int(client_height)
-    logger.debug(f"Element scrollable check: scrollHeight={scroll_height}, clientHeight={client_height}, scrollable={scrollable}")
-    return scrollable
-
-
-def scroll_slow(driver, element, current_position, step=20):
+def scroll_slow(driver: webdriver.Chrome, element: WebElement, current_position: int, time_to_scroll_sec: float = 2):
     """Медленно скроллить страницу, пока не дойдем до элемента"""
     # Get the element's position on the page
     element_position = element.location['y']
 
-    # Scroll slowly by small increments
+    # определить размер шага, необходимый для того, чтобы
+    # доскроллить до элемента за время time_to_scroll_sec
+    sleep_time = 0.01
+    distance = abs(current_position - element_position)
+    step_num = time_to_scroll_sec // sleep_time + 1
+    step = distance // step_num + 1
+    
+    # медленно скроллим до нужного нам элемента
     if current_position < element_position:
-        while current_position < element_position - 20:
+        while current_position < element_position - 30:
             current_position += step
             driver.execute_script(f"window.scrollTo(0, {current_position});")
-            time.sleep(0.05)  # Adjust the sleep time for smoother scrolling
+            time.sleep(sleep_time)
     else:
-        while current_position > element_position + 20:
+        while current_position > element_position + 30:
             current_position -= step
             driver.execute_script(f"window.scrollTo(0, {current_position});")
-            time.sleep(0.05)  # Adjust the sleep time for smoother scrolling
+            time.sleep(sleep_time) 
     
     time.sleep(0.5)
     return current_position
@@ -106,20 +108,20 @@ def chrome_browser_options():
     return options
 
 
-def printred(text):
+def printred(text: str):
     red = "\033[91m"
     reset = "\033[0m"
     logger.debug("Printing text in red: %s", text)
     print(f"{red}{text}{reset}")
 
 
-def printyellow(text):
+def printyellow(text: str):
     yellow = "\033[93m"
     reset = "\033[0m"
     logger.debug("Printing text in yellow: %s", text)
     print(f"{yellow}{text}{reset}")
 
 
-def stringWidth(text, font, font_size):
+def stringWidth(text: str, font: Any, font_size: int):
     bbox = font.getbbox(text)
     return bbox[2] - bbox[0]
