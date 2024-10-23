@@ -1,139 +1,127 @@
 personal_information:
-  name: "solid"
-  surname: "snake"
-  date_of_birth: "12/01/1861"
-  country: "Ireland"
-  city: "Dublin"
-  zip_code: "520123"
-  address: "12 Fox road"
-  phone_prefix: "+1"
-  phone: "7819117091"
-  email: "hi@gmail.com"
-  github: "https://github.com/lol"
-  linkedin: "https://www.linkedin.com/in/thezucc/"
-  
-
-education_details:
-  - education_level: "Master's Degree"
-    institution: "Bob academy"
-    field_of_study: "Bobs Engineering"
-    final_evaluation_grade: "4.0"
-    year_of_completion: "2023"
-    start_date: "2022"
-    additional_info:
-      exam:
-        Algorithms: "A"
-        Linear Algebra: "A"
-        Database Systems: "A"
-        Operating Systems: "A-"
-        Web Development: "A"
-
-experience_details:
-  - position: "X"
-    company: "Y."
-    employment_period: "06/2019 - Present"
-    location: "San Francisco, CA"
-    industry: "Technology"
-    key_responsibilities:
-      - responsibility: "Developed web applications using React and Node.js"
-      - responsibility: "Collaborated with cross-functional teams to design and implement new features"
-      - responsibility: "Troubleshot and resolved complex software issues"
-    skills_acquired:
-      - "React"
-      - "Node.js"
-      - "Software Troubleshooting"
-  - position: "Software Developer"
-    company: "Innovatech"
-    employment_period: "06/2015 - 12/2017"
-    location: "Milan, Italy"
-    industry: "Technology"
-    key_responsibilities:
-      - responsibility: "Developed and maintained web applications using modern technologies"
-      - responsibility: "Collaborated with UX/UI designers to enhance user experience"
-      - responsibility: "Implemented automated testing procedures to ensure code quality"
-    skills_acquired:
-      - "Web development"
-      - "User experience design"
-      - "Automated testing"
-  - position: "Junior Developer"
-    company: "StartUp Hub"
-    employment_period: "01/2014 - 05/2015"
-    location: "Florence, Italy"
-    industry: "Startups"
-    key_responsibilities:
-      - responsibility: "Assisted in the development of mobile applications and web platforms"
-      - responsibility: "Participated in code reviews and contributed to software design discussions"
-      - responsibility: "Resolved bugs and implemented feature enhancements"
-    skills_acquired:
-      - "Mobile app development"
-      - "Code reviews"
-      - "Bug fixing"
-projects:
-  - name: "X"
-    description: "Y blah blah blah "
-    link: "https://github.com/haveagoodday"
-
-
-
-achievements:
-  - name: "Employee of the Month"
-    description: "Recognized for exceptional performance and contributions to the team."
-  - name: "Hackathon Winner"
-    description: "Won first place in a national hackathon competition."
-
-certifications:
-  #- "Certified Scrum Master"
-  #- "AWS Certified Solutions Architect"
-
-languages:
-  - language: "English"
-    proficiency: "Fluent"
-  - language: "Spanish"
-    proficiency: "Intermediate"
-
-interests:
-  - "Machine Learning"
-  - "Cybersecurity"
-  - "Open Source Projects"
-  - "Digital Marketing"
-  - "Entrepreneurship"
-
-availability:
-  notice_period: "2 weeks"
-
-salary_expectations:
-  salary_range_usd: "90000 - 110000"
-
-self_identification:
-  gender: "Female"
-  pronouns: "She/Her"
-  veteran: "No"
-  disability: "No"
-  ethnicity: "Asian"
+  name: Алексей
+  surname: Семенов
+  date_of_birth: 15.07.1995
+  country: Россия
+  city: Москва
+  phone: 89998765432
+  email: alexneth93@gmail.com
+  github: https://www.github.com/alexneth93/
+  linkedin: https://www.linkedin.com/in/alex-semenov-f3e57c712/
+  personal_site: https://alex-semenov.ru
 
 legal_authorization:
-  eu_work_authorization: "Yes"
-  us_work_authorization: "Yes"
-  requires_us_visa: "No"
-  requires_us_sponsorship: "Yes"
-  requires_eu_visa: "No"
-  legally_allowed_to_work_in_eu: "Yes"
-  legally_allowed_to_work_in_us: "Yes"
-  requires_eu_sponsorship: "No"
-  canada_work_authorization: "Yes"
-  requires_canada_visa: "No"
-  legally_allowed_to_work_in_canada: "Yes"
-  requires_canada_sponsorship: "No"
-  uk_work_authorization: "Yes"
-  requires_uk_visa: "No"
-  legally_allowed_to_work_in_uk: "Yes"
-  requires_uk_sponsorship: "No"
-
+  countries:
+    - Россия
+    - Беларусь
 
 work_preferences:
-  remote_work: "Yes"
-  in_person_work: "Yes"
-  open_to_relocation: "Yes"
-  willing_to_complete_assessments: "Yes"
-  willing_to_undergo_drug_tests: "Yes"
-  willing_to_undergo_background_checks: "Yes"
+  position: Python разработчик
+  specialization: Программист, разработчик
+  job_type: "[Полная занятость, Частичная занятость, Проектная работа, Волонтерство, Стажировка]"
+  work_schedule: "[Полный день, Сменный график, Гибкий график, Удаленная работа, Вахтовый метод]"
+  travel_time_to_work: "[Не имеет значения/Не более часа/Не более полутора часов]"
+  ready_to_business_trips: "[Готов/Иногда/Никогда]"
+  relocation: "[Не могу переехать/Могу переехать/Хочу переехать]"
+  willing_to_complete_assessments: Да
+  willing_to_undergo_drug_tests: Да
+  willing_to_undergo_background_checks: Да
+
+education_details:
+  - education_level: Высшее
+    institution: Московский Государственный Институт
+    faculty: ВМК (Высшая Математика и Кибернетика)
+    company: 
+    specialization: Фундаментальная информатика и информационные технологии
+    year_of_completion: 2019
+
+  - education_level: Курсы
+    institution: 
+    faculty: 
+    company: Яндекс Практикум
+    specialization: Python разработчик
+    year_of_completion: 2021
+
+experience_details:
+  - position: Python разработчик
+    company: ООО «Green-Park»
+    employment_period: Август 2022 — настоящее время
+    industry: Веб-разработка
+    key_responsibilities:
+      - responsibility: Разработка веб-платформы для промо-кампании
+      - responsibility: Разработка телеграм-бота для промо-кампании
+    achievements:
+      - Организовал структуру проекта
+      - Cоздал посадочную страницу на React, обеспечивающую UX/UI-оптимизацию и взаимодействие с пользователем
+      - Внедрил асинхронную обработку чеков API Федеральной налоговой службы
+      - Интегрировал API Яндекс Карт
+      - Ускорил деплой на 10 минут благодаря Git + Docker-compose
+      - Настроил веб-сервер при помощи Nginx и Сertbot
+    skills_acquired:
+      - Веб-разработка
+      - UI design
+      - Автоматическое тестирование
+    technoligies:
+      - Python
+      - Django REST Framework
+      - React
+      - Celery
+      - RabbitMQ
+      - Redis
+      - PostgreSQL
+      - Aiogram
+
+  - position: Python разработчик
+    company: ПРАЙМ ГРУП
+    employment_period: Сентябрь 2020 — Июнь 2022
+    industry: Веб-разработка
+    key_responsibilities:
+      - responsibility_1: Разработка телеграм-бота на Aiogram для взаимодействия с клиентами
+      - responsibility_2: Сайт-сборник проектов на Django
+    achievements:
+      - Разработал базу данных для хранения и обновления рабочего расписания
+      - Внедрил систему мгновенных уведомлений, позволяющую оповещать клиентов об изменениях в заказах в режиме реального времени
+      - Интегрировал API Яндекс Карт и Яндекс Погоды
+    technoligies:
+      - Python
+      - Django
+      - React
+      - Redis
+      - PostgreSQL
+      - Aiogram
+      - REST API
+      - JavaScript
+      - HTML&CSS
+
+projects:
+  - name: X
+    description: Y blah blah blah
+    link: https://github.com/alexneth94/haveagoodday.git
+
+availability:
+  notice_period: 2 недели
+
+salary_expectations:
+  salary_range: от 200000 до 400000 руб
+
+certifications:
+  - Certified Python Developer
+  - Django Certified Solutions Architect
+
+languages:
+  - language: Русский
+    proficiency: Свободно
+  - language: Английский
+    proficiency: Средний
+
+interests:
+  - Машинное обучение и искусственный интеллект
+  - Кибербезопасность
+  - Open Source Projects
+  - Спорт (бег, тяжелая атлетика, лыжи)
+
+achievements:
+  - name: Employee of the Month
+    description: Recognized for exceptional performance and contributions to the team.
+  - name: Hackathon Winner
+    description: Won first place in a national hackathon competition.

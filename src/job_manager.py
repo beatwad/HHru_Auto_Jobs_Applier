@@ -10,14 +10,13 @@ from pathlib import Path
 
 from inputimeout import inputimeout, TimeoutOccurred
 
-from selenium import webdriver
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.common.exceptions import NoSuchElementException, TimeoutException, ElementNotInteractableException
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
-from src.app_config import MINIMUM_WAIT_TIME_SEC, APPLY_ONCE_AT_COMPANY
+from src.app_config import MINIMUM_WAIT_TIME_SEC, APPLY_ONCE_AT_COMPANY, JOB_BLACKLIST
 from loguru import logger
 
 
@@ -39,7 +38,12 @@ class JobManager:
         """Установка параметрок поиска"""
         logger.debug("Установка параметров JobManager")
         # загрузка обязательных параметров
-        self.number_of_resume_to_select = parameters['number_of_resume_to_select'] - 1
+        if "number_of_resume_to_select" in parameters:
+            self.number_of_resume_to_select = parameters['number_of_resume_to_select'] - 1
+        else:
+            logger.warning("Не нашли переменную номера выбираемого резюме `number_of_resume_to_select`. "
+                           "По умолчанию выбираем первое")
+            self.number_of_resume_to_select = 0
         self.keywords = parameters['keywords']
         self.experience = parameters['experience']
         self.sort_by = parameters['sort_by']
@@ -89,7 +93,7 @@ class JobManager:
             _ = inputimeout(
                 prompt="""Пожалуйста,проверьте настройки, убедитесь, что все верно или исправьте неверные по вашему мнению настройки. 
                 По завершению нажмите Enter. У вас есть 2 минуты.""",
-                timeout=120)
+                timeout=1200) #  !!!
         except TimeoutOccurred:
             pass
         self._start_search()
@@ -187,16 +191,18 @@ class JobManager:
             experience = job["experience"]
             company_name = job["company_name"]
             company_address = job["company_address"]
-            # если вакансия еще не встречалась - записать ее в список уже просмотренных вакансий
             job_name = f"{company_name}_{company_address}_{title}_{experience}"
             logger.debug(f"Найдена вакансия {job_name}")
-            if not self._is_already_applied_to_job(job_name) and not self._is_already_applied_to_company(company_name):
+            # если вакансия еще не встречалась и компания не в черном списке 
+            # - начать процесс отклика на вакансию
+            if not self._is_blacklisted(company_name) and \
+                not self._is_already_applied_to_job(job_name) and \
+                    not self._is_already_applied_to_company(company_name):
                 self.apply_job(job)
             # вернуться обратно на страницу поиска
             self.driver.close()
             self._pause()
             self.driver.switch_to.window(window_handles[0])
-            time.sleep(3600) # !!!
         # если страница была обработана быстрее, чем за минимальное время - 
         # подождать, пока это время не закончится       
         time_left = int(minimum_page_time - time.time())
@@ -242,9 +248,9 @@ class JobManager:
         try:
             output_file = os.path.join(
                 Path("data_folder/output"), "answers.json")
-            logger.debug(f"Logging path determined: {output_file}")
+            logger.debug(f"Определено расположение лог-файла: {output_file}")
         except Exception as e:
-            logger.error(f"Error determining the answer path: {str(e)}")
+            logger.error(f"Ошибка в определении расположения лог-файла: {str(e)}")
             raise
         return output_file
     
@@ -275,7 +281,6 @@ class JobManager:
             logger.error(f"Error saving questions data to JSON file: {tb_str}")
             raise Exception(f"Error saving questions data to JSON file: \nTraceback:\n{tb_str}")
         
-    
     def _load_questions_from_json(self) -> List[dict]:
         """Загрузить файл с уже готовыми ответами на вопросы"""
         output_file = self._define_answers_output_file()
@@ -388,6 +393,13 @@ class JobManager:
         logger.debug("No text fields found in the section.")
         return False
     
+    def _is_blacklisted(self, company) -> bool:
+        """Проверить, откликались ли мы уже на эту вакансию"""
+        if company in JOB_BLACKLIST:
+            logger.debug("Компания в черном списке, пропускаем")
+            return True
+        return False
+    
     def _is_already_applied_to_job(self, job) -> bool:
         """Проверить, откликались ли мы уже на эту вакансию"""
         if job in self.seen_jobs:
@@ -451,7 +463,7 @@ class JobManager:
     def _enter_advanced_search_menu(self):
         """Зайти на страницу с резюме, выбрать нужное и перейти через него к поиску вакансий"""
         self.driver.get("https://hh.ru/applicant/resumes")
-        resume_element = ("xpath", "//*[@data-qa='resume-recommendations__button_respond']")
+        resume_element = ("xpath", "//*[starts-with(@data-qa, 'resume-recommendations__button')]")
         self.wait.until(EC.visibility_of_element_located(resume_element))
         resume_recs = self.driver.find_elements(*resume_element)
         resume_rec = resume_recs[self.number_of_resume_to_select]
@@ -492,6 +504,7 @@ class JobManager:
         if not self.words_to_exclude:
             return
         words_to_exclude_element = self.driver.find_element("xpath", "//*[@data-qa='vacancysearch__keywords-excluded-input']")
+        self.current_position = self._scroll_slow(words_to_exclude_element, self.current_position)
         self._enter_text(words_to_exclude_element, ', '.join(self.words_to_exclude))
         
 
@@ -513,11 +526,10 @@ class JobManager:
         if len(specialization_list) == 0:
             specialization_list = self.driver.find_elements("xpath", "//*[starts-with(@data-qa, 'bloko-tree-selector-item-text bloko-tree-selector-item-text')]")
         if len(specialization_list) > 0:
-            self.current_position = self._scroll_slow(specialization_list[0], self.current_position)
             specialization_list[0].click()
-            self.driver.find_element("xpath", "[data-qa='bloko-tree-selector-popup-submit']").click()
+            self.driver.find_element("xpath", "//*[@data-qa='bloko-tree-selector-popup-submit']").click()
         else:
-            self.driver.find_element("xpath", f"//*[@data-qa='bloko-modal-close']").click()
+            self.driver.find_element("xpath", "//*[@data-qa='bloko-modal-close']").click()
 
     def _set_industry(self) -> None:   
         """Задать oтрасль компании"""
@@ -537,7 +549,6 @@ class JobManager:
         if len(industry_list) == 0:
             industry_list = self.driver.find_elements("xpath", "//*[starts-with(@data-qa, 'bloko-tree-selector-item-text bloko-tree-selector-item-text')]")
         if len(industry_list) > 0:
-            self.current_position = self._scroll_slow(industry_list[0], self.current_position)
             industry_list[0].click()
             self.driver.find_element("xpath", "//*[@data-qa='bloko-tree-selector-popup-submit']").click() 
         else:
@@ -550,6 +561,7 @@ class JobManager:
             self._enter_text(region_element, region)
             self._pause()
             region_element.send_keys(Keys.TAB)
+            self._pause()
 
     def _set_district(self) -> None:   
         """Задать район (если есть на странице)"""
@@ -562,6 +574,7 @@ class JobManager:
                 self._enter_text(district_element, district)
                 self._pause()
                 district_element.send_keys(Keys.TAB)
+                self._pause()
                 
     def _set_subway(self) -> None:   
         """Задать метро (если есть на странице)"""
@@ -574,6 +587,7 @@ class JobManager:
                 self._enter_text(subway_element, station)
                 self._pause()
                 subway_element.send_keys(Keys.TAB)
+                self._pause()
 
     def _set_income(self) -> None:   
         """Задать уровень дохода"""
@@ -622,6 +636,7 @@ class JobManager:
                 checkboxes = self.driver.find_elements("class name", "bloko-checkbox__text")
                 element = [c for c in checkboxes if "ГПХ" in c.text]
                 if len(element) > 0:
+                    self.current_position = self._scroll_slow(element[0], self.current_position)
                     element[0].click()
                 else:
                     logger.error("Не смогли найти на странице элемент 'Оформление по ГПХ или по совместительству'")

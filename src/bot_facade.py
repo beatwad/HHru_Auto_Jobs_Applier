@@ -8,13 +8,12 @@ class BotState:
 
     def reset(self):
         logger.debug("Resetting AIHawkBotState")
-        self.credentials_set = False
-        self.api_key_set = False
+        self.parameters_set = False
+        self.logged_in = False
         self.search_parameters_set = False
         self.resume_profile_set = False
         self.gpt_answerer_set = False
-        self.parameters_set = False
-        self.logged_in = False
+        
 
     def validate_state(self, required_keys):
         logger.debug(f"Validating BotState with required keys: {required_keys}")
@@ -44,15 +43,13 @@ class BotFacade:
         self.parameters = parameters
         self.login_component.set_parameters(parameters)
         self.apply_component.set_parameters(parameters)
-        self.state.credentials_set = True
         self.state.parameters_set = True
         logger.debug("Все параметры установлены успешно")
     
     def start_login(self):
         """Входим на сайт"""
         logger.debug("Starting login process")
-        self.state.validate_state(['credentials_set'])
-        self.state.validate_state(['parameters_set'])
+        self.state.validate_state(['resume_profile_set', 'gpt_answerer_set'])
         self.login_component.start()
         self.state.logged_in = True
         logger.debug("Процесс входа на сайт завершен успешно")
@@ -60,6 +57,7 @@ class BotFacade:
     def set_search_parameters(self):
         """Устанавливаем дополнительные параметры поиска в hh.ru"""
         self.apply_component.set_advanced_search_params()
+        self.state.validate_state(['search_parameters_set'])
         self.state.search_parameters_set = True
         logger.debug("Параметры поиска установлены успешно")
     
@@ -83,9 +81,7 @@ class BotFacade:
         logger.debug("GPT answerer and resume generator set successfully")
 
     def start_apply(self):
-        logger.debug("Starting apply process")
-        # self.state.validate_state(['logged_in', 'resume_profile_set', 'gpt_answerer_set', 'parameters_set'])
-        self.state.validate_state(['logged_in', 'parameters_set', 'search_parameters_set'])
+        self.state.validate_state(['logged_in', 'parameters_set'])
         logger.debug("Apply process started successfully")
         self.apply_component.start_applying()
         logger.debug("Apply process finished successfully")

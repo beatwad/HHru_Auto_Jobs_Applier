@@ -1,8 +1,6 @@
-import random
 import time
 
-from selenium.common.exceptions import NoSuchElementException, TimeoutException, NoAlertPresentException, TimeoutException, UnexpectedAlertPresentException
-from selenium.webdriver.common.by import By
+from selenium.common.exceptions import NoSuchElementException, TimeoutException, TimeoutException
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
@@ -63,7 +61,7 @@ class Authenticator:
                 vacansies = self.driver.find_elements("css selector", '[data-qa="mainmenu_vacancyResponses"]')
                 if len(vacansies) == 0:
                     time.sleep(check_interval)
-                    print("Пожалуйста, войдите в аккаунт hh.ru")  # TODO: do we need a print?
+                    logger.debug("Пожалуйста, войдите в аккаунт hh.ru")
                     continue
                 else:
                     logger.debug("Вход произведен успешно, переходим на страницу пользователя.")
@@ -74,21 +72,6 @@ class Authenticator:
             return False
         
         return True
-
-
-    def handle_security_check(self) -> None:
-        try:
-            logger.debug("Handling security check...")
-            WebDriverWait(self.driver, 10).until(
-                EC.url_contains('https://www.linkedin.com/checkpoint/challengesV2/')
-            )
-            logger.warning("Security checkpoint detected. Please complete the challenge.")
-            WebDriverWait(self.driver, 300).until(
-                EC.url_contains('https://www.linkedin.com/feed/')
-            )
-            logger.info("Security check completed")
-        except TimeoutException:
-            logger.error("Security check not completed. Please try again later.")
 
 
     def is_logged_in(self) -> bool:

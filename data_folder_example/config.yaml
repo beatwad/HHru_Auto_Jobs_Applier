@@ -1,46 +1,102 @@
-remote: true
+login:  # Логин: email или телефон (обязательное поле)
+  alexneth93@gmail.com
 
-experienceLevel:
-  internship: false
-  entry: true
-  associate: true
-  mid-senior level: true
-  director: false
-  executive: false
+number_of_resume_to_select: # Какое по счету резюме из имеющихся выбрать (1, 2, 3 и т.д.)
+  2
 
-jobTypes:
-  full-time: true
-  contract: false
-  part-time: false
-  temporary: true
-  internship: false
-  other: false
-  volunteer: true
+job_blacklist:
+  - Google
+  - Meta
 
-date:
-  all time: false
-  month: false
-  week: false
-  24 hours: true
+keywords:  # Ключевые слова
+  - ML инженер
 
-positions:
-  - Software engineer
+search_only:  # Искать только
+  vacancy_name: true  # в названии вакансии
+  company_name: false  # в названии компании
+  vacancy_description: true  # в описании вакансии
 
-locations:
-  - Germany
+words_to_exclude:  # Исключить слова
+  - Аналитик
+  - Analyst
 
-apply_once_at_company: true
+specialization: # Специализация
+  Программист  
 
-distance: 100
+industry: # Отрасль компании
+  Банк
 
-company_blacklist:
-  - wayfair
-  - Crossover
+regions:  # Регион
+  - Москва
 
-title_blacklist:
-  - word1
-  - word2
+districts:  # Район
+  - Замоскворечье
+  - Северный
 
-job_applicants_threshold:
-  min_applicants: 0
-  max_applicants: 30
+subway:  # Метро
+  - Курская
+  - Новогиреево
+
+income: # Уровень дохода
+  300000
+
+education:  # Образование
+  not_needed: true  # Не требуется или не указано
+  middle: true  # Среднее профессиональное
+  higher: true  # Высшее
+
+experience: # Требуемый опыт работы (обязательное поле)
+  doesnt_matter: false  # Не имеет значения
+  no_experience: false  # Нет опыта
+  between_1_and_3: true  # От 1 года до 3 лет
+  between_3_and_6: false  # От 3 до 6 лет
+  6_and_more: false  # Более 6 лет
+
+job_type:  # Тип занятости
+  full_time: true  # Полная занятость
+  part_time: false  # Частичная занятость
+  project: false  # Проектная работа/разовое задание
+  volunteer: false  # Волонтерство
+  probation: false  # Стажировка
+  civil_law_contract: true  # Оформление по ГПХ или по совместительству
+
+work_schedule:  # График работы
+  full_day: false  # Полный день
+  shift: false  # Сменный график
+  flexible: true  # Гибкий график
+  remote: true  # Удаленная работа
+  fly_in_fly_out: false  # Вахтовый метод
+
+side_job:  # Подработка
+  project: false  # Разовое задание или проект
+  part: false  # Неполный день
+  from_4_hours_per_day: false  # От 4 часов в день
+  weekend: false  # По выходным
+  evenings: false  # По вечерам
+
+other_params:  # Другие параметры
+  with_address: true  # С адресом
+  accept_handicapped: false  # Доступные людям с инвалидностью
+  not_from_agency: true  # Без вакансий от кадровых агентств
+  accept_kids: false  # Доступные с 14 лет
+  accredited_it: true  # От аккредитованных ИТ-компаний
+  low_performance: false  # Меньше 10 откликов
+
+sort_by:  # Сортировать выдачу (обязательное поле):
+  relevance: true  # по соответствию
+  publication_time: false  # по дате изменения
+  salary_desc: false  # ао убыванию зарплат
+  salary_asc: false  # ао возрастанию зарплаты
+
+output_period:  # Выводить (обязательное поле):
+  all_time: true  # за всё время
+  month: false  # за месяц
+  week: false  # за неделю
+  three_days: false  # за последние три дня
+  one_day: false  # за сутки
+
+output_size:  # Показывать на странице (обязательное поле): 
+  show_20: false
+  show_50: true
+  show_100: false
+

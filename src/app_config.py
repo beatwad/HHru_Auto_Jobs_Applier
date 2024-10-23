@@ -30,3 +30,6 @@ LLM_MODEL = "gpt-4o-mini"
 
 # Если True - подавать в каждую компанию не более чем одну вакансию
 APPLY_ONCE_AT_COMPANY = True
+
+# Список компаний, на вакансии которых не откликаемся
+JOB_BLACKLIST = ["Apple", "Google", "Meta"]
