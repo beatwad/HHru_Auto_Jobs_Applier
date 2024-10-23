@@ -12,7 +12,7 @@ from inputimeout import inputimeout, TimeoutOccurred
 
 from selenium import webdriver
 from selenium.webdriver.remote.webelement import WebElement
-from selenium.common.exceptions import NoSuchElementException, TimeoutException
+from selenium.common.exceptions import NoSuchElementException, TimeoutException, ElementNotInteractableException
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
@@ -39,6 +39,7 @@ class JobManager:
         """Установка параметрок поиска"""
         logger.debug("Установка параметров JobManager")
         # загрузка обязательных параметров
+        self.number_of_resume_to_select = parameters['number_of_resume_to_select'] - 1
         self.keywords = parameters['keywords']
         self.experience = parameters['experience']
         self.sort_by = parameters['sort_by']
@@ -62,7 +63,7 @@ class JobManager:
     
     def set_advanced_search_params(self) -> None:
         """Задать дополнительные параметры поиска в hh.ru"""
-        self.driver.get("https://hh.ru/search/vacancy/advanced")
+        self._enter_advanced_search_menu()
         keywords_element = ("xpath", "//*[@data-qa='vacancysearch__keywords-input']")
         self.wait.until(EC.visibility_of_element_located(keywords_element))
         self.current_position = 0
@@ -446,6 +447,27 @@ class JobManager:
         element = self.driver.find_element("xpath", f"//*[@data-qa='{text}']")
         self.current_position = self._scroll_slow(element, self.current_position)
         element.click()
+    
+    def _enter_advanced_search_menu(self):
+        """Зайти на страницу с резюме, выбрать нужное и перейти через него к поиску вакансий"""
+        self.driver.get("https://hh.ru/applicant/resumes")
+        resume_element = ("xpath", "//*[@data-qa='resume-recommendations__button_respond']")
+        self.wait.until(EC.visibility_of_element_located(resume_element))
+        resume_recs = self.driver.find_elements(*resume_element)
+        resume_rec = resume_recs[self.number_of_resume_to_select]
+        self._scroll_slow(resume_rec, 0)
+        resume_rec.click()
+        # перейти к расширенному поиску
+        for _ in range(10):
+            # дождаться пока кнопка станет кликабельной
+            try:
+                wait = WebDriverWait(self.driver, 1, poll_frequency=1)
+                advanced_search_element = ("xpath", "//*[@data-qa='advanced-search']")
+                element = wait.until(EC.element_to_be_clickable(advanced_search_element))
+            except TimeoutException:
+                pass
+            else:
+                element.click()
     
     def _set_key_words(self) -> None:
         """Задать ключевые слова"""
