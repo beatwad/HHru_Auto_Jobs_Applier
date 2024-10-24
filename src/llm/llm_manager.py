@@ -33,18 +33,20 @@ class AIModel(ABC):
 
 
 class OpenAIModel(AIModel):
+    """Получить доступ к модели OpenAI"""
     def __init__(self, api_key: str, llm_model: str):
         from langchain_openai import ChatOpenAI
         self.model = ChatOpenAI(model_name=llm_model, openai_api_key=api_key,
                                 temperature=0.4)
 
     def invoke(self, prompt: str) -> BaseMessage:
-        logger.debug("Invoking OpenAI API")
+        logger.debug("Успешно получен доступ к модели через OpenAI API")
         response = self.model.invoke(prompt)
         return response
 
 
 class ClaudeModel(AIModel):
+    """Получить доступ к модели Claude"""
     def __init__(self, api_key: str, llm_model: str) -> None:
         from langchain_anthropic import ChatAnthropic
         self.model = ChatAnthropic(model=llm_model, api_key=api_key,
@@ -52,26 +54,29 @@ class ClaudeModel(AIModel):
 
     def invoke(self, prompt: str) -> BaseMessage:
         response = self.model.invoke(prompt)
-        logger.debug("Invoking Claude API")
+        logger.debug("Успешно получен доступ к модели через Claude API")
         return response
 
 
 class OllamaModel(AIModel):
+    """Получить доступ к модели Ollama"""
     def __init__(self, llm_model: str, llm_api_url: str) -> None:
         from langchain_ollama import ChatOllama
 
         if len(llm_api_url) > 0:
-            logger.debug(f"Using Ollama with API URL: {llm_api_url}")
+            logger.debug(f"Используем Ollama с API URL: {llm_api_url}")
             self.model = ChatOllama(model=llm_model, base_url=llm_api_url)
         else:
             self.model = ChatOllama(model=llm_model)
 
     def invoke(self, prompt: str) -> BaseMessage:
         response = self.model.invoke(prompt)
+        logger.debug("Успешно получен доступ к модели через Ollama API")
         return response
 
 #gemini doesn't seem to work because API doesn't rstitute answers for questions that involve answers that are too short
 class GeminiModel(AIModel):
+    """Получить доступ к модели Gemini"""
     def __init__(self, api_key:str, llm_model: str):
         from langchain_google_genai import ChatGoogleGenerativeAI, HarmBlockThreshold, HarmCategory
         self.model = ChatGoogleGenerativeAI(model=llm_model, google_api_key=api_key,safety_settings={
@@ -90,9 +95,11 @@ class GeminiModel(AIModel):
 
     def invoke(self, prompt: str) -> BaseMessage:
         response = self.model.invoke(prompt)
+        logger.debug("Успешно получен доступ к модели через Gemini API")
         return response
 
 class HuggingFaceModel(AIModel):
+    """Получить доступ к модели Hugging Face"""
     def __init__(self, api_key: str, llm_model: str):
         from langchain_huggingface import HuggingFaceEndpoint, ChatHuggingFace
         self.model = HuggingFaceEndpoint(repo_id=llm_model, huggingfacehub_api_token=api_key,
@@ -101,11 +108,12 @@ class HuggingFaceModel(AIModel):
 
     def invoke(self, prompt: str) -> BaseMessage:
         response = self.chatmodel.invoke(prompt)
-        logger.debug("Invoking Model from Hugging Face API")
+        logger.debug("Успешно получен доступ к модели через Hugging Face API")
         print(response,type(response))
         return response
 
 class AIAdapter:
+    """Класс для получения доступа к LLM моделям разных фирм через API"""
     def __init__(self, config: dict, api_key: str):
         self.model = self._create_model(config, api_key)
 
@@ -125,16 +133,17 @@ class AIAdapter:
         elif LLM_MODEL_TYPE == "huggingface":
             return HuggingFaceModel(api_key, LLM_MODEL)        
         else:
-            raise ValueError(f"Unsupported model type: {LLM_MODEL_TYPE}")
+            raise ValueError(f"Неподдерживаемый тип модели: {LLM_MODEL_TYPE}")
 
     def invoke(self, prompt: str) -> str:
         return self.model.invoke(prompt)
 
 
 class LLMLogger:
+    """Класс для логирования всех событий, происходящих при работе с LLM"""
     def __init__(self, llm: Union[OpenAIModel, OllamaModel, ClaudeModel, GeminiModel]):
         self.llm = llm
-        logger.debug(f"LLMLogger successfully initialized with LLM: {llm}")
+        logger.debug(f"LLMLogger успешно инициализирован, используем LLM: {llm}")
 
     @staticmethod
     def log_request(prompts, parsed_reply: Dict[str, Dict]) -> None:
@@ -430,7 +439,9 @@ class GPTAnswerer:
         return prompt | self.llm_cheap | StrOutputParser()
 
     def answer_question_textual_wide_range(self, question: str) -> str:
-        logger.debug(f"Answering textual question: {question}")
+        """Определить тему заданного вопроса и ответить на него"""
+        logger.debug(f"Отвечаем на текстовый вопрос: {question}")
+        # промпт модели для определение темы вопроса и ответа на него
         section_prompt = """You are assisting a bot designed to automatically apply for jobs on AIHawk. The bot receives various questions about job applications and needs to determine the most relevant section of the resume to provide an accurate response.
 
         For the following question: '{question}', determine which section of the resume is most relevant. 
@@ -517,7 +528,7 @@ class GPTAnswerer:
             output, re.IGNORECASE)
         if not match:
             raise ValueError(
-                "Could not extract section name from the response.")
+                "Не смогли определить тему вопроса.")
 
         section_name = match.group(1).lower().replace(" ", "_")
         resume_section = getattr(self.resume, section_name, None) or self.resume_profile.get(section_name)
