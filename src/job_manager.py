@@ -11,12 +11,12 @@ from pathlib import Path
 from inputimeout import inputimeout, TimeoutOccurred
 
 from selenium.webdriver.remote.webelement import WebElement
-from selenium.common.exceptions import NoSuchElementException, TimeoutException, ElementNotInteractableException
+from selenium.common.exceptions import NoSuchElementException, TimeoutException, StaleElementReferenceException
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
-from src.app_config import MINIMUM_WAIT_TIME_SEC, APPLY_ONCE_AT_COMPANY, JOB_BLACKLIST
+from src.app_config import MINIMUM_WAIT_TIME_SEC, APPLY_ONCE_AT_COMPANY
 from loguru import logger
 
 
@@ -27,24 +27,17 @@ class JobManager:
         self.driver = driver
         self.gpt_answerer = None
         self.wait = WebDriverWait(driver, 4, poll_frequency=1)
-        self.seen_companies = set()
-        self.seen_jobs = set()
         self.page_num = 1
         self.current_position = 0
-        self.seen_answers = self._load_questions_from_json()
         logger.debug("JobManager успешно инициализирован")
 
     def set_parameters(self, parameters: dict):
         """Установка параметрок поиска"""
         logger.debug("Установка параметров JobManager")
         # загрузка обязательных параметров
-        if "number_of_resume_to_select" in parameters:
-            self.number_of_resume_to_select = parameters['number_of_resume_to_select'] - 1
-        else:
-            logger.warning("Не нашли переменную номера выбираемого резюме `number_of_resume_to_select`. "
-                           "По умолчанию выбираем первое")
-            self.number_of_resume_to_select = 0
-        self.keywords = parameters['keywords']
+        self.job_title = parameters['job_title']
+        self.login = parameters['login']
+        self.keywords = parameters.get("keywords", [])
         self.experience = parameters['experience']
         self.sort_by = parameters['sort_by']
         self.output_period = parameters['output_period']
@@ -63,6 +56,12 @@ class JobManager:
         self.work_schedule = parameters.get('work_schedule', {})
         self.side_job = parameters.get('side_job', {})
         self.other_params = parameters.get('other_params', {})
+        # загрузить черный список компаний
+        self.job_blacklist = parameters.get('job_blacklist', [])
+        self.job_blacklist = [self._sanitize_text(j_b) for j_b in self.job_blacklist]
+        # загрузить компании, в которые уже были отправлены заявки
+        self.companies = self._load_companies_from_json()
+        self.seen_answers = self._load_questions_from_json()
         logger.debug("Параметры успешно установлены")
     
     def set_advanced_search_params(self) -> None:
@@ -71,6 +70,7 @@ class JobManager:
         keywords_element = ("xpath", "//*[@data-qa='vacancysearch__keywords-input']")
         self.wait.until(EC.visibility_of_element_located(keywords_element))
         self.current_position = 0
+        
         self._set_key_words()
         self._set_search_only()
         self._set_words_to_exclude()
@@ -93,7 +93,7 @@ class JobManager:
             _ = inputimeout(
                 prompt="""Пожалуйста,проверьте настройки, убедитесь, что все верно или исправьте неверные по вашему мнению настройки. 
                 По завершению нажмите Enter. У вас есть 2 минуты.""",
-                timeout=1200) #  !!!
+                timeout=120)
         except TimeoutOccurred:
             pass
         self._start_search()
@@ -132,20 +132,16 @@ class JobManager:
     def apply_job(self, job: dict):
         """Откликнусться на вакансию"""
         self.gpt_answerer.set_job(job)
-        self.driver.find_element("xpath", f"//*[@data-qa='vacancy-response-link-top']").click()
-        self._find_and_handle_questions()
-        self._write_and_send_cover_letter()
+        # найти кнопку отклика
+        respnose_buttons = self.driver.find_elements("xpath", f"//*[@data-qa='vacancy-response-link-top']")
+        if len(respnose_buttons) == 0:
+            logger.debug(f"Не нашли кнопку отклика, видимо вы уже откликались на вакансию {job["company_name"]}")
+        else:
+            respnose_buttons[0].click()
+            self._find_and_handle_questions()
+            self._write_and_send_cover_letter()
         self._pause()
 
-    def write_to_file(self, job, file_name):
-        # TODO: добавить запись результатов откликов в файл
-        pass
-
-    def is_blacklisted(self, job_title, company, link):
-        # TODO: добавить черный список компаний
-        pass
-
-    
     def _scroll_slow(self, element: WebElement, current_position: int, time_to_scroll_sec: float = 2) -> int:
         """Медленно скроллить страницу, пока не дойдем до элемента"""
         # Get the element's position on the page
@@ -187,18 +183,25 @@ class JobManager:
             self.driver.switch_to.window(window_handles[-1])
             # собрать описание вакансии
             job = self._scrape_employer_page()
-            title = job["title"]
-            experience = job["experience"]
             company_name = job["company_name"]
-            company_address = job["company_address"]
-            job_name = f"{company_name}_{company_address}_{title}_{experience}"
-            logger.debug(f"Найдена вакансия {job_name}")
+            company_name = self._sanitize_text(company_name)
+            company_job_title = job["title"]
+            company_job_title = self._sanitize_text(company_job_title)
+            logger.debug(f"Найдена вакансия {company_job_title}")
             # если вакансия еще не встречалась и компания не в черном списке 
             # - начать процесс отклика на вакансию
             if not self._is_blacklisted(company_name) and \
-                not self._is_already_applied_to_job(job_name) and \
-                    not self._is_already_applied_to_company(company_name):
+                not self._is_already_applied_to_job_or_company(company_name, company_job_title):
+                # добавить информацию об отклике для последующей записи в JSON файл
+                my_company = self.companies[self.login][self.job_title]
+                if company_name in my_company:
+                    my_company[company_name].append(company_job_title)
+                else:
+                    my_company[company_name] = [company_job_title]
+                # откликнуться на вакансию
                 self.apply_job(job)
+                # записать информацию об отклике в JSON файл
+                self._save_company_to_json()
             # вернуться обратно на страницу поиска
             self.driver.close()
             self._pause()
@@ -244,19 +247,70 @@ class JobManager:
         return job
 
     @staticmethod
-    def _define_answers_output_file() -> Path:
+    def _define_answers_output_file(filename: str) -> Path:
         try:
             output_file = os.path.join(
-                Path("data_folder/output"), "answers.json")
+                Path("data_folder/output"), filename)
             logger.debug(f"Определено расположение лог-файла: {output_file}")
         except Exception as e:
             logger.error(f"Ошибка в определении расположения лог-файла: {str(e)}")
             raise
         return output_file
     
+    def _save_company_to_json(self) -> None:
+        """Сохранить уже просмотренные компании и их вакансии в файл"""
+        output_file = self._define_answers_output_file("companies.json")
+        logger.debug(f"Сохраняем данные о вакансии в JSON")
+        try:
+            try:
+                with open(output_file, 'r') as f:
+                    try:
+                        data = json.load(f)
+                        if not isinstance(data, dict):
+                            raise ValueError("JSON file format is incorrect. Expected a list of questions.")
+                    except json.JSONDecodeError:
+                        logger.error("JSON decoding failed")
+            except FileNotFoundError:
+                logger.warning("JSON file not found, creating new file")
+            with open(output_file, 'w') as f:
+                json.dump(self.companies, f, indent=4)
+            logger.debug("Данные о компании и ее вакансии успешно сохранены в JSON")
+        except Exception:
+            tb_str = traceback.format_exc()
+            logger.error(f"Error saving questions data to JSON file: {tb_str}")
+            raise Exception(f"Error saving questions data to JSON file: \nTraceback:\n{tb_str}")
+        
+    def _load_companies_from_json(self) -> List[dict]:
+        """Загрузить файл c уже просмотренными компаниями и их вакансиями"""
+        output_file = self._define_answers_output_file("companies.json")
+        logger.debug(f"Loading companies from JSON file: {output_file}")
+        try:
+            with open(output_file, 'r') as f:
+                try:
+                    data = json.load(f)
+                    if not isinstance(data, dict):
+                        raise ValueError("JSON file format is incorrect. Expected a list of questions.")
+                except json.JSONDecodeError:
+                    logger.error("JSON decoding failed")
+                    data = {self.login: {self.job_title: {}}}
+            logger.debug("Данные о компаниях и ее вакансиях успешно загружены из JSON")
+            if self.login not in data:
+                data[self.login] = {}
+            if self.job_title not in data[self.login]:
+                data[self.login][self.job_title] = {}
+            return data
+        except FileNotFoundError:
+            data = {self.login: {self.job_title: {}}}
+            logger.warning("JSON file not found, returning empty dict")
+            return data
+        except Exception:
+            tb_str = traceback.format_exc()
+            logger.error(f"Error loading questions data from JSON file: {tb_str}")
+            raise Exception(f"Error loading questions data from JSON file: \nTraceback:\n{tb_str}")
+    
     def _save_questions_to_json(self, question_data: dict) -> None:
         """Сохранить вопрос в файл"""
-        output_file = self._define_answers_output_file()
+        output_file = self._define_answers_output_file("answers.json")
         question_data['question'] = self._sanitize_text(question_data['question'])
         logger.debug(f"Saving question data to JSON: {question_data}")
         try:
@@ -283,7 +337,7 @@ class JobManager:
         
     def _load_questions_from_json(self) -> List[dict]:
         """Загрузить файл с уже готовыми ответами на вопросы"""
-        output_file = self._define_answers_output_file()
+        output_file = self._define_answers_output_file("answers.json")
         logger.debug(f"Loading questions from JSON file: {output_file}")
         try:
             with open(output_file, 'r') as f:
@@ -331,14 +385,16 @@ class JobManager:
             # нажать на кнопку отклика
             response_button = self.driver.find_element("xpath", "//*[@data-qa='vacancy-response-submit-popup']")
             self._scroll_slow(response_button, position)
-            # response_button.click() !!!
+            response_button.click()
         else:
             # если удалось найти кнопки добавления сопроводительного письма - нажать и отправить его 
             cover_letter_buttons = self.driver.find_elements("xpath", f"//*[@data-qa='vacancy-response-letter-toggle']")
             if cover_letter_buttons:
+                # нажать на кнопку добавления сопроводительного письма
                 cover_letter_button = cover_letter_buttons[0]
                 self._scroll_slow(cover_letter_buttons[0], 0)
                 cover_letter_button.click()
+                # записать в поле текст сопроводительного письма
                 cover_letter_field = self.driver.find_element("xpath", f"//*[@data-qa='vacancy-response-letter-informer']")
                 cover_letter_text_field = cover_letter_field.find_element("tag name", 'textarea')
                 self._enter_text(cover_letter_text_field, cover_letter_text)
@@ -348,10 +404,12 @@ class JobManager:
                 self._scroll_slow(chat_button, 0)
                 chat_button.click()
                 iframes = self.driver.find_elements("tag name", "iframe")
+                # найти окошко чата
                 for frame in iframes:
                     if frame.get_attribute('class') == "chatik-integration-iframe chatik-integration-iframe_loaded":
                         self.driver.switch_to.frame(frame)
                         self.driver.find_element("xpath", f"//*[@data-qa='chatik-chat-message-applicant-action-text']").click()
+                        # послать в чат сопроводительное письмо
                         text_field = self.driver.find_element("xpath", f"//*[@data-qa='chatik-new-message-text']")
                         self._enter_text(text_field, cover_letter_text)
                         self._pause()
@@ -395,26 +453,22 @@ class JobManager:
     
     def _is_blacklisted(self, company) -> bool:
         """Проверить, откликались ли мы уже на эту вакансию"""
-        if company in JOB_BLACKLIST:
+        if company in self.job_blacklist:
             logger.debug("Компания в черном списке, пропускаем")
             return True
         return False
     
-    def _is_already_applied_to_job(self, job) -> bool:
+    def _is_already_applied_to_job_or_company(self, company, job) -> bool:
         """Проверить, откликались ли мы уже на эту вакансию"""
-        if job in self.seen_jobs:
-            logger.debug("Вакансия уже встречалась, пропускаем")
-            return True
-        self.seen_jobs.add(job)
-        return False
-
-    def _is_already_applied_to_company(self, company) -> bool:
-        """Проверить, откликались ли мы уже на вакансии этой компании"""
-        if company in self.seen_companies:
+        my_companies = self.companies[self.login][self.job_title]
+        if company in my_companies:
             if APPLY_ONCE_AT_COMPANY:
-                logger.debug("Компания уже встречалась, пропускаем")
+                logger.debug("Компания уже встречалась и задана настройка не подаваться "
+                             "повторно в ту же компанию, пропускаем")
                 return True
-        self.seen_companies.add(company)
+            if job in my_companies[company]:
+                logger.debug("Вакансия уже встречалась, пропускаем")
+                return True
         return False
     
     def _enter_text(self, element: WebElement, text: str) -> None:
@@ -463,30 +517,42 @@ class JobManager:
     def _enter_advanced_search_menu(self):
         """Зайти на страницу с резюме, выбрать нужное и перейти через него к поиску вакансий"""
         self.driver.get("https://hh.ru/applicant/resumes")
-        resume_element = ("xpath", "//*[starts-with(@data-qa, 'resume-recommendations__button')]")
-        self.wait.until(EC.visibility_of_element_located(resume_element))
-        resume_recs = self.driver.find_elements(*resume_element)
-        resume_rec = resume_recs[self.number_of_resume_to_select]
-        self._scroll_slow(resume_rec, 0)
-        resume_rec.click()
+        resume_title_element = ("xpath", "//*[starts-with(@data-qa, 'resume-title-link')]")
+        resume_recommendation_element = ("xpath", "//*[starts-with(@data-qa, 'resume-recommendations__button')]")
+        self.wait.until(EC.visibility_of_element_located(resume_title_element))
+        resume_titles = self.driver.find_elements(*resume_title_element)
+        # найти среди резюме подходящее с таким же названием, что указано в настройках
+        for i, resume_title in enumerate(resume_titles):
+            if resume_title.text == self.job_title:
+                resume_num = i
+                break
+        else:
+            logger.error(f"Не смогли найти среди ваших резюме нужное с именем {self.job_title}")
+            raise
+        resume_recommendations = self.driver.find_elements(*resume_recommendation_element)
+        resume_recommendation = resume_recommendations[resume_num]
+        # Получить наименование
+        self._scroll_slow(resume_recommendation, 0)
+        resume_recommendation.click()
         # перейти к расширенному поиску
         for _ in range(10):
             # дождаться пока кнопка станет кликабельной
             try:
-                wait = WebDriverWait(self.driver, 1, poll_frequency=1)
+                wait = WebDriverWait(self.driver, 2, poll_frequency=1)
                 advanced_search_element = ("xpath", "//*[@data-qa='advanced-search']")
                 element = wait.until(EC.element_to_be_clickable(advanced_search_element))
-            except TimeoutException:
+            except (TimeoutException, StaleElementReferenceException):
                 pass
             else:
                 element.click()
     
     def _set_key_words(self) -> None:
         """Задать ключевые слова"""
-        keywords_field = self.driver.find_element("xpath", "//*[@data-qa='vacancysearch__keywords-input']")
-        self._enter_text(keywords_field, ', '.join(self.keywords))
-        self._pause()
-        keywords_field.send_keys(Keys.TAB)
+        if self.keywords:
+            keywords_field = self.driver.find_element("xpath", "//*[@data-qa='vacancysearch__keywords-input']")
+            self._enter_text(keywords_field, ', '.join(self.keywords))
+            self._pause()
+            keywords_field.send_keys(Keys.TAB)
 
     def _set_search_only(self) -> None:
         """Искать только"""
@@ -506,7 +572,6 @@ class JobManager:
         words_to_exclude_element = self.driver.find_element("xpath", "//*[@data-qa='vacancysearch__keywords-excluded-input']")
         self.current_position = self._scroll_slow(words_to_exclude_element, self.current_position)
         self._enter_text(words_to_exclude_element, ', '.join(self.words_to_exclude))
-        
 
     def _set_specialization(self) -> None:   
         """Задать специализацию"""

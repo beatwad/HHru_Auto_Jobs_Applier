@@ -57,7 +57,6 @@ class BotFacade:
     def set_search_parameters(self):
         """Устанавливаем дополнительные параметры поиска в hh.ru"""
         self.apply_component.set_advanced_search_params()
-        self.state.validate_state(['search_parameters_set'])
         self.state.search_parameters_set = True
         logger.debug("Параметры поиска установлены успешно")
     
@@ -81,7 +80,7 @@ class BotFacade:
         logger.debug("GPT answerer and resume generator set successfully")
 
     def start_apply(self):
-        self.state.validate_state(['logged_in', 'parameters_set'])
+        self.state.validate_state(['logged_in', 'parameters_set', 'search_parameters_set'])
         logger.debug("Apply process started successfully")
         self.apply_component.start_applying()
         logger.debug("Apply process finished successfully")

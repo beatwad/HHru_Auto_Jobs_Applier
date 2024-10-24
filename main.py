@@ -14,12 +14,10 @@ from src.bot_facade import BotFacade
 from src.job_manager import JobManager
 from loguru import logger
 
-# TODO: move the code to the main directory
-# TODO: save responses to job in file
-
 # TODO: check the whole pipeline 
 # TODO: translate all comments and debug statements to Russian
 # TODO: write README
+# TODO: change License
 # TODO: write tests
 
 log_file = "log/app_log.log"
@@ -49,8 +47,8 @@ class ConfigValidator:
         parameters = self.load_yaml_file(config_yaml_path)
         # обязательные настройки
         required_keys = {
+            'job_title': str,
             'login': str,
-            'number_of_resume_to_select': int,
             'experience': dict,
             'sort_by': dict,
             'output_period': dict,
@@ -63,8 +61,6 @@ class ConfigValidator:
                     raise ConfigError(f"Отсутствует или неверный тип ключа '{key}' в конфигурационном файле {config_yaml_path}")
             elif not isinstance(parameters[key], expected_type):
                 raise ConfigError(f"Неверный тип ключа '{key}' в конфигурационном файле {config_yaml_path}. Ожидается {expected_type}.")
-        
-        assert parameters['number_of_resume_to_select'] > 0
         
         # Проверить все поля и значения настройки "Опыт"
         experience = ['doesnt_matter', 'no_experience', 'between_1_and_3', 'between_3_and_6', '6_and_more']

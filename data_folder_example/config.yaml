@@ -1,12 +1,13 @@
+job_title:  # Должность (обязательное поле, должно совпадать с названием резюме)
+  "Программист Python"
+
 login:  # Логин: email или телефон (обязательное поле)
   alexneth93@gmail.com
 
-number_of_resume_to_select: # Какое по счету резюме из имеющихся выбрать (1, 2, 3 и т.д.)
-  2
-
-job_blacklist:
+job_blacklist: # Список компаний, на вакансии которых не откликаемся
   - Google
   - Meta
+  - Apple
 
 keywords:  # Ключевые слова
   - ML инженер
@@ -99,4 +100,3 @@ output_size:  # Показывать на странице (обязательн
   show_20: false
   show_50: true
   show_100: false
-
