@@ -23,13 +23,14 @@ from loguru import logger
 log_file = "log/app_log.log"
 logger.add(log_file)
 
-# Suppress stderr
+# Не выводить stderr
 sys.stderr = open(os.devnull, 'w')
 
 class ConfigError(Exception):
     pass
 
 class ConfigValidator:
+    """Класс для проверки правильности настроек конфигурации"""
     @staticmethod
     def load_yaml_file(yaml_path: Path) -> dict:
         """Загрузить настройки из YAML файла конфигурации"""
@@ -166,6 +167,8 @@ class ConfigValidator:
             if 'other_params' in parameters and not isinstance(parameters['other_params'].get(o_p), bool):
                 raise ConfigError(f"Поле 'other_params -> {o_p}' должно иметь тип bool в конфигурационном файле {config_yaml_path}")
         
+        logger.debug("Проверка параметров завершена успешно.")
+        
         return parameters
 
     @staticmethod
@@ -176,25 +179,26 @@ class ConfigValidator:
 
         for secret in mandatory_secrets:
             if secret not in secrets:
-                raise ConfigError(f"Missing secret '{secret}' in file {secrets_yaml_path}")
+                raise ConfigError(f"Отсутствует ключ '{secret}' в файле {secrets_yaml_path}")
 
         if not secrets['llm_api_key']:
-            raise ConfigError(f"llm_api_key cannot be empty in secrets file {secrets_yaml_path}.")
+            raise ConfigError(f"Значение llm_api_key не может быть пустым в файле {secrets_yaml_path}.")
         return secrets['llm_api_key']
 
 
 class FileManager:
+    """"Класс для поиска и проверки содержимого файла в папке данных"""
     @staticmethod
     def validate_data_folder(app_data_folder: Path) -> tuple:
         """Проверить наличие всех необходимых файлов настроек"""
         if not app_data_folder.exists() or not app_data_folder.is_dir():
-            raise FileNotFoundError(f"Data folder not found: {app_data_folder}")
+            raise FileNotFoundError(f"Папка данных не найдена: {app_data_folder}")
 
         required_files = ['secrets.yaml', 'config.yaml', 'plain_text_resume.yaml', 'resume.txt']
         missing_files = [file for file in required_files if not (app_data_folder / file).exists()]
         
         if missing_files:
-            raise FileNotFoundError(f"Missing files in the data folder: {', '.join(missing_files)}")
+            raise FileNotFoundError(f"Отсутствуют файлы в папке данных: {', '.join(missing_files)}")
 
         output_folder = app_data_folder / 'output'
         output_folder.mkdir(exist_ok=True)
@@ -204,10 +208,10 @@ class FileManager:
     def file_paths_to_dict(resume_file: Path, plain_text_resume_file: Path) -> dict:
         """Добавить в параметры файлы резюме"""
         if not plain_text_resume_file.exists():
-            raise FileNotFoundError(f"Plain text resume file not found: {plain_text_resume_file}")
+            raise FileNotFoundError(f"Схема резюме не найдена: {plain_text_resume_file}")
         
         if not resume_file.exists():
-                raise FileNotFoundError(f"Resume file not found: {resume_file}")
+                raise FileNotFoundError(f"Файл резюме не найден: {resume_file}")
 
         result = {'plainTextResume': plain_text_resume_file, 'resume': resume_file}
 
@@ -244,9 +248,9 @@ def create_and_run_bot(parameters, llm_api_key):
         bot.set_search_parameters()
         bot.start_apply()
     except WebDriverException as e:
-        logger.error(f"WebDriver error occurred: {e}")
+        logger.error(f"WebDriver ошибка: {e}")
     except Exception as e:
-        raise RuntimeError(f"Error running the bot: {str(e)}")
+        raise RuntimeError(f"Ошибка в процессе работы бота: {str(e)}")
 
 def main():
     try:

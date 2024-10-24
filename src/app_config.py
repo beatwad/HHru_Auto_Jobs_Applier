@@ -30,3 +30,16 @@ LLM_MODEL = "gpt-4o-mini"
 
 # Если True - подавать в каждую компанию не более чем одну вакансию
 APPLY_ONCE_AT_COMPANY = True
+
+
+# словарь для подсчета стоимости запроса к модели
+PRICE_DICT = {
+    "gpt-4o": {
+        "price_per_input_token": 2.5e-6,
+        "price_per_output_token": 1e-5,
+        },
+    "gpt-4o-mini": {
+        "price_per_input_token": 1.5e-7,
+        "price_per_output_token": 6e-7,
+        },
+    }

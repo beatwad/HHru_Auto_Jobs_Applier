@@ -1,17 +1,12 @@
-from typing import Any
-
 import os
 import sys
-import time
 
 from selenium import webdriver
-
 from loguru import logger
-
 from src.app_config import MINIMUM_LOG_LEVEL
 
-log_file = "app_log.log"
 
+log_file = "app_log.log"
 
 if MINIMUM_LOG_LEVEL in ["DEBUG", "TRACE", "INFO", "WARNING", "ERROR", "CRITICAL"]:
     logger.remove()
@@ -23,8 +18,9 @@ else:
 
 chromeProfilePath = os.path.join(os.getcwd(), "chrome_profile", "linkedin_profile")
 
-def ensure_chrome_profile():
-    logger.debug(f"Ensuring Chrome profile exists at path: {chromeProfilePath}")
+def ensure_chrome_profile() -> str:
+    """Проверяем, что профиль Chrome существует"""
+    logger.debug(f"Проверяем, что профиль Chrome существует по пути: {chromeProfilePath}")
     profile_dir = os.path.dirname(chromeProfilePath)
     if not os.path.exists(profile_dir):
         os.makedirs(profile_dir)
@@ -35,9 +31,9 @@ def ensure_chrome_profile():
     return chromeProfilePath
 
 
-def chrome_browser_options():
-    """Задать настройки браузера, в котором будет работать Selenium"""
-    logger.debug("Setting Chrome browser options")
+def chrome_browser_options() -> webdriver.ChromeOptions:
+    """Задать настройки браузера Chrome, в котором будет работать Selenium"""
+    logger.debug("Задаем настройки Chrome")
     ensure_chrome_profile()
     options = webdriver.ChromeOptions()
     options.add_argument("--start-maximized")
@@ -71,28 +67,23 @@ def chrome_browser_options():
         profile_dir = os.path.basename(chromeProfilePath)
         options.add_argument('--user-data-dir=' + initial_path)
         options.add_argument("--profile-directory=" + profile_dir)
-        logger.debug(f"Using Chrome profile directory: {chromeProfilePath}")
+        logger.debug(f"Используем профиль Chrome из папки: {chromeProfilePath}")
     else:
         options.add_argument("--incognito")
-        logger.debug("Using Chrome in incognito mode")
+        logger.debug("Используем Chrome в режиме инкогнито")
 
     return options
 
 
-def printred(text: str):
+def printred(text: str) -> None:
     red = "\033[91m"
     reset = "\033[0m"
-    logger.debug("Printing text in red: %s", text)
+    logger.debug("Печатаем текст красным: %s", text)
     print(f"{red}{text}{reset}")
 
 
-def printyellow(text: str):
+def printyellow(text: str) -> None:
     yellow = "\033[93m"
     reset = "\033[0m"
-    logger.debug("Printing text in yellow: %s", text)
+    logger.debug("Печатаем текст желтым: %s", text)
     print(f"{yellow}{text}{reset}")
-
-
-def stringWidth(text: str, font: Any, font_size: int):
-    bbox = font.getbbox(text)
-    return bbox[2] - bbox[0]

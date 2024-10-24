@@ -21,7 +21,7 @@ from langchain_core.prompts import ChatPromptTemplate
 import src.strings as strings
 from loguru import logger
 
-from src.app_config import LLM_MODEL_TYPE, LLM_MODEL
+from src.app_config import LLM_MODEL_TYPE, LLM_MODEL, PRICE_DICT
 
 load_dotenv()
 
@@ -45,7 +45,7 @@ class OpenAIModel(AIModel):
 
 
 class ClaudeModel(AIModel):
-    def __init__(self, api_key: str, llm_model: str):
+    def __init__(self, api_key: str, llm_model: str) -> None:
         from langchain_anthropic import ChatAnthropic
         self.model = ChatAnthropic(model=llm_model, api_key=api_key,
                                    temperature=0.4)
@@ -57,7 +57,7 @@ class ClaudeModel(AIModel):
 
 
 class OllamaModel(AIModel):
-    def __init__(self, llm_model: str, llm_api_url: str):
+    def __init__(self, llm_model: str, llm_api_url: str) -> None:
         from langchain_ollama import ChatOllama
 
         if len(llm_api_url) > 0:
@@ -137,7 +137,7 @@ class LLMLogger:
         logger.debug(f"LLMLogger successfully initialized with LLM: {llm}")
 
     @staticmethod
-    def log_request(prompts, parsed_reply: Dict[str, Dict]):
+    def log_request(prompts, parsed_reply: Dict[str, Dict]) -> None:
         logger.debug("Starting log_request method")
         logger.debug(f"Prompts received: {prompts}")
         logger.debug(f"Parsed reply received: {parsed_reply}")
@@ -202,10 +202,13 @@ class LLMLogger:
             raise
 
         try:
-            prompt_price_per_token = 0.00000015
-            completion_price_per_token = 0.0000006
-            total_cost = (input_tokens * prompt_price_per_token) + \
-                (output_tokens * completion_price_per_token)
+            # рассчитать общую стоимость запроса
+            prices = PRICE_DICT.get(LLM_MODEL, {"price_per_input_token": 1.5e-7, 
+                                                "price_per_output_token": 6e-7})
+            price_per_input_token = prices["price_per_input_token"]
+            price_per_output_token = prices["price_per_output_token"]
+            total_cost = (input_tokens * price_per_input_token) + \
+                (output_tokens * price_per_output_token)
             logger.debug(f"Total cost calculated: {total_cost}")
         except Exception as e:
             logger.error(f"Error calculating total cost: {str(e)}")
@@ -372,7 +375,7 @@ class GPTAnswerer:
         }
 
     @property
-    def job_description(self):
+    def job_description(self) -> Dict[str, str]:
         return self.job["description"]
 
     @staticmethod
@@ -396,16 +399,16 @@ class GPTAnswerer:
         logger.debug("Preprocessing template string")
         return textwrap.dedent(template)
 
-    def set_resume(self, resume):
+    def set_resume(self, resume) -> None:
         logger.debug(f"Setting resume: {resume}")
         self.resume = resume
 
-    def set_job(self, job):
+    def set_job(self, job) -> None:
         logger.debug(f"Setting job: {job}")
         self.job = job
         self.job["summarize_job_description"] = "Job description" # self.summarize_job_description(self.job["description"]) !!!
 
-    def set_resume_profile(self, resume_profile: dict):
+    def set_resume_profile(self, resume_profile: dict) -> None:
         logger.debug(f"Setting job application profile: {resume_profile}")
         self.resume_profile = resume_profile
 
@@ -421,7 +424,7 @@ class GPTAnswerer:
         logger.debug(f"Summary generated: {output}")
         return output
 
-    def _create_chain(self, template: str):
+    def _create_chain(self, template: str) -> ChatPromptTemplate:
         logger.debug(f"Creating chain with template: {template}")
         prompt = ChatPromptTemplate.from_template(template)
         return prompt | self.llm_cheap | StrOutputParser()

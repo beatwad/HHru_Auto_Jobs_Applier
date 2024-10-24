@@ -1,4 +1,4 @@
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Any
 
 import os
 import re
@@ -10,6 +10,7 @@ from pathlib import Path
 
 from inputimeout import inputimeout, TimeoutOccurred
 
+from selenium import webdriver
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.common.exceptions import NoSuchElementException, TimeoutException, StaleElementReferenceException
 from selenium.webdriver.common.keys import Keys
@@ -22,7 +23,7 @@ from loguru import logger
 
 class JobManager:
     """Класс для поиска и рассылки откликов работодателям"""
-    def __init__(self, driver):
+    def __init__(self, driver: webdriver.Chrome):
         logger.debug("Инициализация JobManager")
         self.driver = driver
         self.gpt_answerer = None
@@ -31,7 +32,7 @@ class JobManager:
         self.current_position = 0
         logger.debug("JobManager успешно инициализирован")
 
-    def set_parameters(self, parameters: dict):
+    def set_parameters(self, parameters: Dict[str, Any]):
         """Установка параметрок поиска"""
         logger.debug("Установка параметров JobManager")
         # загрузка обязательных параметров
@@ -99,7 +100,7 @@ class JobManager:
         self._start_search()
 
         
-    def set_gpt_answerer(self, gpt_answerer):
+    def set_gpt_answerer(self, gpt_answerer: Any):
         """
         Задать LLM для ответов на вопросы и написания
         сопроводительных писем
@@ -129,7 +130,7 @@ class JobManager:
                 logger.error(f"Неизвестная ошибка: {tb_str}")
                 continue
     
-    def apply_job(self, job: dict):
+    def apply_job(self, job: Dict[str, str]) -> None:
         """Откликнусться на вакансию"""
         self.gpt_answerer.set_job(job)
         # найти кнопку отклика
@@ -417,7 +418,7 @@ class JobManager:
                         break
                 self.driver.switch_to.default_content()
                 
-    def _find_and_handle_textbox_question(self, question) -> bool:
+    def _find_and_handle_textbox_question(self, question: WebElement) -> bool:
         text_question_fields = question.find_elements("tag name", 'textarea')
         if text_question_fields:
             question_text = question.text.lower().strip()
@@ -451,14 +452,14 @@ class JobManager:
         logger.debug("No text fields found in the section.")
         return False
     
-    def _is_blacklisted(self, company) -> bool:
+    def _is_blacklisted(self, company: str) -> bool:
         """Проверить, откликались ли мы уже на эту вакансию"""
         if company in self.job_blacklist:
             logger.debug("Компания в черном списке, пропускаем")
             return True
         return False
     
-    def _is_already_applied_to_job_or_company(self, company, job) -> bool:
+    def _is_already_applied_to_job_or_company(self, company: str, job: str) -> bool:
         """Проверить, откликались ли мы уже на эту вакансию"""
         my_companies = self.companies[self.login][self.job_title]
         if company in my_companies:
@@ -514,7 +515,7 @@ class JobManager:
         self.current_position = self._scroll_slow(element, self.current_position)
         element.click()
     
-    def _enter_advanced_search_menu(self):
+    def _enter_advanced_search_menu(self) -> None:
         """Зайти на страницу с резюме, выбрать нужное и перейти через него к поиску вакансий"""
         self.driver.get("https://hh.ru/applicant/resumes")
         resume_title_element = ("xpath", "//*[starts-with(@data-qa, 'resume-title-link')]")
@@ -788,7 +789,7 @@ class JobManager:
                 self._find_by_data_qa_and_click(output_size_dict[o_s])
                 break
 
-    def _start_search(self):
+    def _start_search(self) -> None:
         """Начать поиск"""
         search_button = self.driver.find_element("xpath", "//*[@data-qa='advanced-search-submit-button']")
         search_button.click()

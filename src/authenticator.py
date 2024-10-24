@@ -1,3 +1,5 @@
+from typing import Dict, Any
+
 import time
 
 from selenium.common.exceptions import NoSuchElementException, TimeoutException, TimeoutException
@@ -8,13 +10,13 @@ from loguru import logger
 
 
 class Authenticator:
-
+    """Класс для входа и получения данных для входа на сайт"""
     def __init__(self, driver=None):
         self.driver = driver
         self.login = None
         logger.debug(f"Аутентификатор проинициализирован драйвером: {driver}")
 
-    def set_parameters(self, parameters) -> None:
+    def set_parameters(self, parameters: Dict[str, Any]) -> None:
         logger.debug("Установка параметров Authenticator")
         self.login = parameters['login']
     
@@ -46,7 +48,8 @@ class Authenticator:
         try:
             logger.debug("Ввод данных пользователя...")
             
-            check_interval = 20  # Interval to log the current URL
+            # С каким интервалом пытаться зайти на сайт
+            check_interval = 20  
 
             self.driver.find_element("css selector", '[data-qa="login"]').click()
             

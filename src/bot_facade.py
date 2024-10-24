@@ -1,13 +1,15 @@
+from typing import Dict, Any
+
 from loguru import logger
 
 
 class BotState:
     def __init__(self):
-        logger.debug("Initializing AIHawkBotState")
+        logger.debug("Инициализируем класс BotState")
         self.reset()
 
     def reset(self):
-        logger.debug("Resetting AIHawkBotState")
+        logger.debug("Сброс состояния класса BotState")
         self.parameters_set = False
         self.logged_in = False
         self.search_parameters_set = False
@@ -16,16 +18,17 @@ class BotState:
         
 
     def validate_state(self, required_keys):
-        logger.debug(f"Validating BotState with required keys: {required_keys}")
+        logger.debug(f"Проверяем флаги состояний BotState: {required_keys}")
         for key in required_keys:
             if not getattr(self, key):
-                logger.error(f"State validation failed: {key} is not set")
-                raise ValueError(f"{key.replace('_', ' ').capitalize()} must be set before proceeding.")
-        logger.debug("State validation passed")
+                logger.error(f"Проверка флагов состояний провалена, флаг {key} не установлен")
+                raise ValueError(f"Флаг {key.replace('_', ' ').capitalize()} должен быть установлен")
+        logger.debug("Проверка состояний пройдена успешно")
 
 
 class BotFacade:
-    def __init__(self, login_component, apply_component):
+    """Класс интерфейса с ботом"""
+    def __init__(self, login_component: Any, apply_component: Any):
         logger.debug("Initializing BotFacade")
         self.login_component = login_component # Authenticator
         self.apply_component = apply_component # JobManager
@@ -36,7 +39,7 @@ class BotFacade:
         self.password = None
         self.parameters = None
 
-    def set_parameters(self, parameters):
+    def set_parameters(self, parameters: Dict[str, Any]) -> None:
         """Проверяем, что все параметры установлены верно"""
         logger.debug("Установка параметров")
         self._validate_non_empty(parameters, "Parameters")
@@ -46,21 +49,21 @@ class BotFacade:
         self.state.parameters_set = True
         logger.debug("Все параметры установлены успешно")
     
-    def start_login(self):
+    def start_login(self) -> None:
         """Входим на сайт"""
-        logger.debug("Starting login process")
+        logger.debug("Входим на сайт")
         self.state.validate_state(['resume_profile_set', 'gpt_answerer_set'])
         self.login_component.start()
         self.state.logged_in = True
         logger.debug("Процесс входа на сайт завершен успешно")
 
-    def set_search_parameters(self):
+    def set_search_parameters(self) -> None:
         """Устанавливаем дополнительные параметры поиска в hh.ru"""
         self.apply_component.set_advanced_search_params()
         self.state.search_parameters_set = True
         logger.debug("Параметры поиска установлены успешно")
     
-    def set_resume_profile_and_resume(self, resume_profile, resume):
+    def set_resume_profile_and_resume(self, resume_profile, resume) -> None:
         """Загружаем резюме и профиль резюме"""
         logger.debug("Загружаем резюме и его профиль")
         self._validate_non_empty(resume_profile, "Профиль резюме")
@@ -70,31 +73,35 @@ class BotFacade:
         self.state.resume_profile_set = True
         logger.debug("Резюме и его профиль загружены успешно")
 
-    def set_gpt_answerer(self, gpt_answerer_component):
-        logger.debug("Setting GPT answerer and resume generator")
-        self._ensure_job_profile_and_resume_set()
+    def set_gpt_answerer(self, gpt_answerer_component) -> None:
+        """Запускаем класс для работы с LLM и обработчик резюме"""
+        logger.debug("Запускаем класс для работы с LLM и обработчик резюме")
+        self._ensure_resume_set()
         gpt_answerer_component.set_resume_profile(self.resume_profile)
         gpt_answerer_component.set_resume(self.resume)
         self.apply_component.set_gpt_answerer(gpt_answerer_component)
         self.state.gpt_answerer_set = True
-        logger.debug("GPT answerer and resume generator set successfully")
+        logger.debug("Класс для работы с LLM и обработчик резюме успешно запущены")
 
-    def start_apply(self):
+    def start_apply(self) -> None:
+        """Начинаем процесс отправки резюме"""
         self.state.validate_state(['logged_in', 'parameters_set', 'search_parameters_set'])
-        logger.debug("Apply process started successfully")
+        logger.debug("Начинаем процесс отправки резюме")
         self.apply_component.start_applying()
-        logger.debug("Apply process finished successfully")
+        logger.debug("Процесс отправки резюме успешно завершен")
 
-    def _validate_non_empty(self, value, name):
-        logger.debug(f"Validating that {name} is not empty")
+    def _validate_non_empty(self, value, name) -> None:
+        """Проверяем, что поле с именем `name` не пустое"""
+        logger.debug(f"Проверяем, что поле с именем {name} не пустое")
         if not value:
-            logger.error(f"Validation failed: {name} is empty")
+            logger.error(f"Проверка провалена: поле с именем {name} пустое")
             raise ValueError(f"{name} cannot be empty.")
-        logger.debug(f"Validation passed for {name}")
+        logger.debug(f"Проверка поле с именем {name} проведена успешно")
 
-    def _ensure_job_profile_and_resume_set(self):
-        logger.debug("Ensuring job profile and resume are set")
+    def _ensure_resume_set(self) -> None:
+        """Проверяем, что резюме и его профиль заданы"""
+        logger.debug("Проверяем, что резюме и его профиль заданы")
         if not self.state.resume_profile_set:
-            logger.error("Job application profile and resume are not set")
-            raise ValueError("Job application profile and resume must be set before proceeding.")
-        logger.debug("Job profile and resume are set")
+            logger.error("Резюме и/или его профиль не заданы")
+            raise ValueError("Необходимо задать резюме и его профиль для корректной работы.")
+        logger.debug("Резюме и его профиль заданы")
