@@ -244,15 +244,16 @@ class JobManager:
                 job[key] = self.driver.find_element("xpath", f"//*[@data-qa='{data_qa}']").text
             except NoSuchElementException:
                 job[key] = None
-        
+            logger.debug("Информация со страницы работодателя успешно собрана")
         return job
 
     @staticmethod
     def _define_answers_output_file(filename: str) -> Path:
+        """Определить путь к выходному файлу"""
         try:
             output_file = os.path.join(
                 Path("data_folder/output"), filename)
-            logger.debug(f"Определено расположение лог-файла: {output_file}")
+            logger.debug(f"Определен путь к выходному файлу: {output_file}")
         except Exception as e:
             logger.error(f"Ошибка в определении расположения лог-файла: {str(e)}")
             raise
@@ -268,18 +269,18 @@ class JobManager:
                     try:
                         data = json.load(f)
                         if not isinstance(data, dict):
-                            raise ValueError("JSON file format is incorrect. Expected a list of questions.")
+                            raise ValueError("Формат файла JSON неверный, ожидаем словарь")
                     except json.JSONDecodeError:
-                        logger.error("JSON decoding failed")
+                        logger.error("Декодирование JSON файла завершено с ошибкой")
             except FileNotFoundError:
-                logger.warning("JSON file not found, creating new file")
+                logger.warning("JSON файл не найден, создаем новый словарь")
             with open(output_file, 'w') as f:
                 json.dump(self.companies, f, indent=4)
-            logger.debug("Данные о компании и ее вакансии успешно сохранены в JSON")
+            logger.debug("Данные о компании и ее вакансии успешно сохранены в JSON файл")
         except Exception:
             tb_str = traceback.format_exc()
-            logger.error(f"Error saving questions data to JSON file: {tb_str}")
-            raise Exception(f"Error saving questions data to JSON file: \nTraceback:\n{tb_str}")
+            logger.error(f"Ошибка при сохранении информации о просмотренных компаниях в JSON файл")
+            raise Exception(f"Ошибка при сохранении информации о просмотренных компаниях в JSON: \nTraceback:\n{tb_str}")
         
     def _load_companies_from_json(self) -> List[dict]:
         """Загрузить файл c уже просмотренными компаниями и их вакансиями"""
@@ -290,24 +291,25 @@ class JobManager:
                 try:
                     data = json.load(f)
                     if not isinstance(data, dict):
-                        raise ValueError("JSON file format is incorrect. Expected a list of questions.")
+                        raise ValueError("Формат файла JSON неверный, ожидаем словарь")
                 except json.JSONDecodeError:
-                    logger.error("JSON decoding failed")
+                    logger.error("Декодирование JSON файла завершено с ошибкой")
                     data = {self.login: {self.job_title: {}}}
             logger.debug("Данные о компаниях и ее вакансиях успешно загружены из JSON")
             if self.login not in data:
                 data[self.login] = {}
             if self.job_title not in data[self.login]:
                 data[self.login][self.job_title] = {}
+            logger.debug("Информация о компаниях загружена успешно из JSON файла")
             return data
         except FileNotFoundError:
             data = {self.login: {self.job_title: {}}}
-            logger.warning("JSON file not found, returning empty dict")
+            logger.warning("JSON файл не найден, возвращаем пустой словарь")
             return data
         except Exception:
             tb_str = traceback.format_exc()
-            logger.error(f"Error loading questions data from JSON file: {tb_str}")
-            raise Exception(f"Error loading questions data from JSON file: \nTraceback:\n{tb_str}")
+            logger.error(f"Ошибка при загрузке информации о просмотренных компаниях в JSON")
+            raise Exception(f"Ошибка при загрузке информации о просмотренных компаниях в JSON: \nTraceback:\n{tb_str}")
     
     def _save_questions_to_json(self, question_data: dict) -> None:
         """Сохранить вопрос в файл"""
@@ -320,21 +322,21 @@ class JobManager:
                     try:
                         data = json.load(f)
                         if not isinstance(data, list):
-                            raise ValueError("JSON file format is incorrect. Expected a list of questions.")
+                            raise ValueError("Формат файла JSON неверный, ожидаем список вопросов")
                     except json.JSONDecodeError:
-                        logger.error("JSON decoding failed")
+                        logger.error("Декодирование JSON файла завершено с ошибкой")
                         data = []
             except FileNotFoundError:
-                logger.warning("JSON file not found, creating new file")
+                logger.warning("JSON файл не найден, возвращаем пустой словарь")
                 data = []
             data.append(question_data)
             with open(output_file, 'w') as f:
                 json.dump(data, f, indent=4)
-            logger.debug("Question data saved successfully to JSON")
+            logger.debug("Новый вопрос успешно сохранен в JSON файл")
         except Exception:
             tb_str = traceback.format_exc()
-            logger.error(f"Error saving questions data to JSON file: {tb_str}")
-            raise Exception(f"Error saving questions data to JSON file: \nTraceback:\n{tb_str}")
+            logger.error(f"Ошибка при сохранении списка вопросов в JSON файл")
+            raise Exception(f"Ошибка при сохранении списка вопросов в JSON файл: \nTraceback:\n{tb_str}")
         
     def _load_questions_from_json(self) -> List[dict]:
         """Загрузить файл с уже готовыми ответами на вопросы"""
@@ -345,19 +347,19 @@ class JobManager:
                 try:
                     data = json.load(f)
                     if not isinstance(data, list):
-                        raise ValueError("JSON file format is incorrect. Expected a list of questions.")
+                        raise ValueError("Формат файла JSON неверный, ожидаем список вопросов")
                 except json.JSONDecodeError:
-                    logger.error("JSON decoding failed")
+                    logger.error("Декодирование JSON файла завершено с ошибкой")
                     data = []
-            logger.debug("Questions loaded successfully from JSON")
+            logger.debug("Список вопросов успешно загружен из JSON файла")
             return data
         except FileNotFoundError:
-            logger.warning("JSON file not found, returning empty list")
+            logger.warning("JSON файл не найден, возвращаем пустой список")
             return []
         except Exception:
             tb_str = traceback.format_exc()
-            logger.error(f"Error loading questions data from JSON file: {tb_str}")
-            raise Exception(f"Error loading questions data from JSON file: \nTraceback:\n{tb_str}")
+            logger.error(f"Ошибка при загрузке списка вопросов из JSON файла")
+            raise Exception(f"Ошибка при загрузке списка вопросов из JSON файла: \nTraceback:\n{tb_str}")
         
     def _find_and_handle_questions(self) -> None:
         """Если на странице есть вопросы - использовать LLM для ответа на них"""
@@ -380,6 +382,7 @@ class JobManager:
         cover_letter_field = self.driver.find_elements("xpath", "//*[@data-qa='vacancy-response-popup-form-letter-input']")
         # если удалось найти форму для ввода сопроводительного письма - отправить его туда 
         if cover_letter_field:
+            logger.debug("Найдена форма для ввода сопроводительного письма")
             cover_letter_field = cover_letter_field[0]
             position = self._scroll_slow(cover_letter_field, 0)
             self._enter_text(cover_letter_field, cover_letter_text)
@@ -387,10 +390,12 @@ class JobManager:
             response_button = self.driver.find_element("xpath", "//*[@data-qa='vacancy-response-submit-popup']")
             self._scroll_slow(response_button, position)
             response_button.click()
+            logger.debug("Сопроводительное письмо успешно отправлено")
         else:
             # если удалось найти кнопки добавления сопроводительного письма - нажать и отправить его 
             cover_letter_buttons = self.driver.find_elements("xpath", f"//*[@data-qa='vacancy-response-letter-toggle']")
             if cover_letter_buttons:
+                logger.debug("Найдена кнопка для открытия формы для сопроводительного письма")
                 # нажать на кнопку добавления сопроводительного письма
                 cover_letter_button = cover_letter_buttons[0]
                 self._scroll_slow(cover_letter_buttons[0], 0)
@@ -399,7 +404,9 @@ class JobManager:
                 cover_letter_field = self.driver.find_element("xpath", f"//*[@data-qa='vacancy-response-letter-informer']")
                 cover_letter_text_field = cover_letter_field.find_element("tag name", 'textarea')
                 self._enter_text(cover_letter_text_field, cover_letter_text)
+                logger.debug("Сопроводительное письмо успешно отправлено")
             else:
+                logger.debug("Ищем чат с работодателем")
                 # иначе зайти в чат с работодателем и отправить сопроводительное из него
                 chat_button = self.driver.find_element("xpath", f"//*[@data-qa='vacancy-response-link-view-topic']")
                 self._scroll_slow(chat_button, 0)
@@ -408,17 +415,21 @@ class JobManager:
                 # найти окошко чата
                 for frame in iframes:
                     if frame.get_attribute('class') == "chatik-integration-iframe chatik-integration-iframe_loaded":
+                        logger.debug("Нашли чат с работодателем")
                         self.driver.switch_to.frame(frame)
                         self.driver.find_element("xpath", f"//*[@data-qa='chatik-chat-message-applicant-action-text']").click()
                         # послать в чат сопроводительное письмо
+                        logger.debug("Отправляем сопроводительное письмо в чат")
                         text_field = self.driver.find_element("xpath", f"//*[@data-qa='chatik-new-message-text']")
                         self._enter_text(text_field, cover_letter_text)
                         self._pause()
                         text_field.send_keys(Keys.ENTER)
+                        logger.debug("Сопроводительное письмо успешно отправлено")
                         break
                 self.driver.switch_to.default_content()
                 
     def _find_and_handle_textbox_question(self, question: WebElement) -> bool:
+        """Функция для поиска в резюме ответа и собственно ответа на вопросы работодателя"""
         text_question_fields = question.find_elements("tag name", 'textarea')
         if text_question_fields:
             question_text = question.text.lower().strip()
@@ -449,11 +460,11 @@ class JobManager:
             logger.debug("Ответ введен в textbox")
             return True
 
-        logger.debug("No text fields found in the section.")
+        logger.debug("Не найдено вопросов от работодателя")
         return False
     
     def _is_blacklisted(self, company: str) -> bool:
-        """Проверить, откликались ли мы уже на эту вакансию"""
+        """Проверить, не находится ли компания в черном списке"""
         if company in self.job_blacklist:
             logger.debug("Компания в черном списке, пропускаем")
             return True
@@ -473,7 +484,7 @@ class JobManager:
         return False
     
     def _enter_text(self, element: WebElement, text: str) -> None:
-        logger.debug(f"Entering text: {text}")
+        logger.debug(f"Вводим текст: {text}")
         element.clear()
         element.send_keys(text)
     
@@ -793,10 +804,11 @@ class JobManager:
         """Начать поиск"""
         search_button = self.driver.find_element("xpath", "//*[@data-qa='advanced-search-submit-button']")
         search_button.click()
+        logger.debug("Начинаем поиск вакансий")
 
     def _sanitize_text(self, text: str) -> str:
         """Очистить текст вопроса/ответа"""
         sanitized_text = text.lower().strip().replace('"', '').replace('\\', '')
         sanitized_text = re.sub(r'[\x00-\x1F\x7F]', '', sanitized_text).replace('\n', ' ').replace('\r', '').rstrip(',')
-        logger.debug(f"Sanitized text: {sanitized_text}")
+        logger.debug(f"Очищенный текст: {sanitized_text}")
         return sanitized_text
